@@ -1,4 +1,9 @@
 #!/bin/sh
+#
+# Deploys and provisions the local environment for the CDD platform.
+# Installs core dependencies (Rust, Node.js), sets up databases
+# (PostgreSQL, Redis/Valkey), builds all cdd microservices in-place,
+# and exports the built infrastructure into multiple packaging formats.
 
 set -e
 

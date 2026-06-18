@@ -1,4 +1,8 @@
 @echo off
+:: Orchestrates and runs the local End-to-End (E2E) test suite for the CDD platform.
+:: This script handles provisioning dependencies, setting up the local PostgreSQL database,
+:: and executing the Playwright tests against the local environment.
+
 setlocal
 
 set LIBSCRIPT=..\libscript\libscript.cmd

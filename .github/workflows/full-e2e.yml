@@ -1,3 +1,10 @@
+# GitHub Actions Workflow: Full Native E2E Pipeline
+# 
+# This workflow orchestrates the native End-to-End (E2E) testing pipeline for the CDD platform.
+# It checks out all necessary repositories (microservices, UI, and ops), provisions dependencies
+# (databases, Node.js, Rust), and executes the consolidated Playwright test suite using the
+# local ops scripts, ensuring that integration across all services functions correctly.
+
 name: Full Native E2E Pipeline
 
 on:
@@ -12,7 +19,7 @@ jobs:
     timeout-minutes: 60
     services:
       postgres:
-        image: postgres:15
+        image: postgres:18-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_HOST_AUTH_METHOD: trust
@@ -83,7 +90,7 @@ jobs:
           path: cdd-publisher
 
       - name: Install mise
-        uses: jdx/mise-action@v2
+        uses: jdx/mise-action@v4
 
       - name: Set up Node.js
         uses: actions/setup-node@v6

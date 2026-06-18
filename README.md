@@ -177,6 +177,34 @@ The test definitions and Playwright configuration can be found in the `e2e/` dir
 
 ---
 
+## Dependencies
+
+| Name | Description | CI |
+| ---- | ----------- | -- |
+| [cdd-c](https://github.com/SamuelMarks/cdd-c) | OpenAPI ↔ C. Frontend for C, concentrating on: generation from code; single-file analysis; modification; and emission (prettyprinting). | [![CI](https://github.com/SamuelMarks/cdd-c/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-c/actions) |
+| [cdd-cpp](https://github.com/SamuelMarks/cdd-cpp) | OpenAPI ↔ C++ | [![CI](https://github.com/SamuelMarks/cdd-cpp/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-cpp/actions) |
+| [cdd-csharp](https://github.com/SamuelMarks/cdd-csharp) | OpenAPI ↔ C# | [![CI](https://github.com/SamuelMarks/cdd-csharp/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-csharp/actions) |
+| [cdd-go](https://github.com/SamuelMarks/cdd-go) | OpenAPI ↔ Go | [![CI](https://github.com/SamuelMarks/cdd-go/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-go/actions) |
+| [cdd-java](https://github.com/SamuelMarks/cdd-java) | OpenAPI ↔ Java | [![CI](https://github.com/SamuelMarks/cdd-java/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-java/actions) |
+| [cdd-kotlin](https://github.com/SamuelMarks/cdd-kotlin) | OpenAPI ↔ Kotlin: Compiler Driven Development for Kotlin. | [![CI](https://github.com/SamuelMarks/cdd-kotlin/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-kotlin/actions) |
+| [cdd-php](https://github.com/SamuelMarks/cdd-php) | OpenAPI ↔ PHP | [![CI](https://github.com/SamuelMarks/cdd-php/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-php/actions) |
+| [cdd-python](https://github.com/SamuelMarks/cdd-python) | OpenAPI ↔ Python. To/fro routes, models, and tests. Convert between docstrings, classes, methods, argparse, SQLalchemy, Pydantic, JSON-schema. | [![CI](https://github.com/SamuelMarks/cdd-python/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-python/actions) |
+| [cdd-python-all](https://github.com/offscale/cdd-python-all) | OpenAPI ↔ Python | [![CI](https://github.com/offscale/cdd-python-all/workflows/CI/badge.svg)](https://github.com/offscale/cdd-python-all/actions) |
+| [cdd-ruby](https://github.com/SamuelMarks/cdd-ruby) | OpenAPI ↔ Ruby | [![CI](https://github.com/SamuelMarks/cdd-ruby/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-ruby/actions) |
+| [cdd-rust](https://github.com/SamuelMarks/cdd-rust) | OpenAPI ↔ Rust (actix, diesel) | [![CI](https://github.com/SamuelMarks/cdd-rust/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-rust/actions) |
+| [cdd-sh](https://github.com/SamuelMarks/cdd-sh) | OpenAPI ↔ /bin/sh (client, `curl` & `jq`) | [![CI](https://github.com/SamuelMarks/cdd-sh/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-sh/actions) |
+| [cdd-swift](https://github.com/SamuelMarks/cdd-swift) | OpenAPI ↔ Swift | [![CI](https://github.com/SamuelMarks/cdd-swift/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-swift/actions) |
+| [cdd-ts](https://github.com/offscale/cdd-ts) | OpenAPI ↔ TypeScript | [![CI](https://github.com/offscale/cdd-ts/workflows/CI/badge.svg)](https://github.com/offscale/cdd-ts/actions) |
+| [cdd-control-plane](https://github.com/SamuelMarks/cdd-control-plane) | CDD Control Plane service | [![CI](https://github.com/SamuelMarks/cdd-control-plane/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-control-plane/actions) |
+| [cdd-docs-ui](https://github.com/SamuelMarks/cdd-docs-ui) | API docs UI for OpenAPI produced by CDD-* ecosystem CLIs | [![CI](https://github.com/SamuelMarks/cdd-docs-ui/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-docs-ui/actions) |
+| [cdd-engine](https://github.com/SamuelMarks/cdd-engine) | The core execution engine for the cdd-* toolchain. | [![CI](https://github.com/SamuelMarks/cdd-engine/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-engine/actions) |
+| [cdd-gateway](https://github.com/SamuelMarks/cdd-gateway) | API Gateway and management plane for the cdd-* toolchain. | [![CI](https://github.com/SamuelMarks/cdd-gateway/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-gateway/actions) |
+| [cdd-openapi-test-harness](https://github.com/SamuelMarks/cdd-openapi-test-harness) | OpenAPI shared test harness for Compiler Driven Development (CDD) | [![CI](https://github.com/SamuelMarks/cdd-openapi-test-harness/actions/workflows/roundtrip.yml/badge.svg)](https://github.com/SamuelMarks/cdd-openapi-test-harness/actions) |
+| [cdd-ops](https://github.com/SamuelMarks/cdd-ops) | Deploy and test cdd-* suite + web + APIs + databases | [![CI](https://github.com/SamuelMarks/cdd-ops/actions/workflows/full-e2e.yml/badge.svg)](https://github.com/SamuelMarks/cdd-ops/actions) |
+| [cdd-publisher](https://github.com/SamuelMarks/cdd-publisher) | CDD Publisher service | [![CI](https://github.com/SamuelMarks/cdd-publisher/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-publisher/actions) |
+| [cdd-storage](https://github.com/SamuelMarks/cdd-storage) | CDD Storage service | [![CI](https://github.com/SamuelMarks/cdd-storage/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-storage/actions) |
+| [cdd-web-ui](https://github.com/SamuelMarks/cdd-web-ui) | CDD (OpenAPI ↔ lang) unified into project-oriented web dashboards | [![CI](https://github.com/SamuelMarks/cdd-web-ui/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-web-ui/actions) |
+
 ## License
 
 Licensed under either of

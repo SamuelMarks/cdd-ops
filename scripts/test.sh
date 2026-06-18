@@ -1,4 +1,10 @@
 #!/bin/sh
+#
+# Orchestrates and runs the local End-to-End (E2E) test suite for the CDD platform.
+# This script handles provisioning dependencies, applying database migrations,
+# starting all necessary microservices on distinct non-privileged ports,
+# waiting for the gateway to become healthy, and finally executing the Playwright tests.
+
 set -e
 
 # Trap to ensure background processes are killed when the script exits
@@ -17,29 +23,46 @@ done
 LIBSCRIPT="../libscript/libscript.sh"
 
 echo "Setting up dependencies..."
-"$LIBSCRIPT" install rust
-"$LIBSCRIPT" install nodejs
+
+PG_HOST=${POSTGRES_HOST:-localhost}
+PG_PORT=${POSTGRES_PORT:-5432}
+PG_USER=${POSTGRES_USER:-postgres}
+VALKEY_HOST=${VALKEY_HOST:-localhost}
+VALKEY_PORT=${VALKEY_PORT:-6379}
 
 # Skip local installation if running in GitHub Actions (where services are provided)
 if [ -z "$GITHUB_ACTIONS" ]; then
-    echo "Checking if databases are installed..."
-    if ! "$LIBSCRIPT" test postgres >/dev/null 2>&1; then
+    echo "Checking if rust is installed..."
+    if ! "$LIBSCRIPT" test rust >/dev/null 2>&1; then
+        "$LIBSCRIPT" install rust
+    else
+        echo "Rust is already installed."
+    fi
+
+    echo "Checking if nodejs is installed..."
+    if ! "$LIBSCRIPT" test nodejs >/dev/null 2>&1; then
+        "$LIBSCRIPT" install nodejs
+    else
+        echo "Node.js is already installed."
+    fi
+
+    echo "Checking if databases are running or installed..."
+    if nc -z "$PG_HOST" "$PG_PORT" 2>/dev/null; then
+        echo "PostgreSQL is already running on $PG_HOST:$PG_PORT."
+    elif ! "$LIBSCRIPT" test postgres >/dev/null 2>&1; then
         "$LIBSCRIPT" install postgres
     else
         echo "PostgreSQL is already installed."
     fi
     
-    if ! "$LIBSCRIPT" test redis >/dev/null 2>&1 && ! "$LIBSCRIPT" test valkey >/dev/null 2>&1; then
+    if nc -z "$VALKEY_HOST" "$VALKEY_PORT" 2>/dev/null; then
+        echo "Redis/Valkey is already running on $VALKEY_HOST:$VALKEY_PORT."
+    elif ! "$LIBSCRIPT" test redis >/dev/null 2>&1 && ! "$LIBSCRIPT" test valkey >/dev/null 2>&1; then
         "$LIBSCRIPT" install valkey
     else
         echo "Redis/Valkey is already installed."
     fi
 fi
-
-PG_HOST=${POSTGRES_HOST:-localhost}
-PG_USER=${POSTGRES_USER:-postgres}
-VALKEY_HOST=${VALKEY_HOST:-localhost}
-VALKEY_PORT=${VALKEY_PORT:-6379}
 
 echo "Setting up Postgres Database for local tests..."
 psql -h $PG_HOST -U $PG_USER -tc "SELECT 1 FROM pg_database WHERE datname = 'cdd'" | grep -q 1 || psql -h $PG_HOST -U $PG_USER -c "CREATE DATABASE cdd"

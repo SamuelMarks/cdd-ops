@@ -1,3 +1,9 @@
+# Docker Compose Configuration
+#
+# This file provides a basic definition for running the CDD platform
+# microservices (gateway, web-ui, control-plane, engine, and storage)
+# in a containerized environment.
+
 version: "3.8"
 
 services:

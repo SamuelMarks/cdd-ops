@@ -6,61 +6,104 @@ import { checkA11y } from './helpers/a11y';
  * Encapsulates DOM selectors and actions to keep tests strictly typed and maintainable.
  */
 class CddPlatformPage {
+  /**
+   * Initializes the CDD Platform Page Object.
+   * @param page - The Playwright Page object.
+   */
   constructor(public readonly page: Page) {}
 
   // Locators
   // Using accessible role-based locators ensures our e2e tests rely on the same ARIA properties that screen readers do.
+  
   // Dialog locators
+  /** Locator for the main dialog element. */
   readonly dialog = this.page.getByRole('dialog');
+  /** Locator for the settings button. */
   readonly settingsButton = this.page.getByRole('button', { name: /settings/i });
+  /** Locator for the backend URL input field. */
   readonly backendUrlInput = this.dialog.getByLabel(/backend url/i);
+  /** Locator for the connect button. */
   readonly connectButton = this.dialog.getByRole('button', { name: /connect/i });
   
+  /** Locator for the username/email input field. */
   readonly usernameInput = this.dialog.getByLabel(/username|email/i);
+  /** Locator for the password input field. */
   readonly passwordInput = this.dialog.getByLabel(/password/i);
+  /** Locator for the register/sign up button. */
   readonly registerButton = this.dialog.getByRole('button', { name: /register|sign up/i });
+  /** Locator for the login/sign in button. */
   readonly loginButton = this.dialog.getByRole('button', { name: /log in|sign in/i });
+  /** Locator for the close dialog button. */
   readonly closeDialogButton = this.dialog.getByRole('button', { name: /close/i });
   
+  /** Locator for the generic submit/create button. */
   readonly submitButton = this.page.getByRole('button', { name: /submit|create|save|import|yes|confirm|link/i });
   
+  /** Locator for the dashboard heading. */
   readonly dashboardHeading = this.page.getByRole('heading', { name: /cdd control/i });
+  /** Locator for the profile/account button. */
   readonly profileButton = this.page.getByRole('button', { name: /profile|account|user menu/i });
 
   // Dashboard Nav locators
+  /** Locator for the organizations tab link. */
   readonly orgsTab = this.page.getByRole('link', { name: /organizations/i });
+  /** Locator for the repositories tab link. */
   readonly reposTab = this.page.getByRole('link', { name: /repositories/i });
 
   // Organization & Repo locators
+  /** Locator for the create organization button. */
   readonly createOrgButton = this.page.getByRole('button', { name: /create organization|create org/i });
+  /** Locator for the organization name input field. */
   readonly orgNameInput = this.page.getByLabel(/organization name/i);
   
+  /** Locator for the create repository button. */
   readonly createRepoButton = this.page.getByRole('button', { name: /link repository|create repo/i });
+  /** Locator for the repository name input field. */
   readonly repoNameInput = this.page.getByLabel(/repository name/i);
 
   // Generation locators
+  /** Locator for the add specification button. */
   readonly addSpecButton = this.page.getByRole('button', { name: /add spec|upload openapi|import/i });
+  /** Locator for the specification URL input field. */
   readonly specUrlInput = this.page.getByLabel(/spec url|openapi url/i);
+  /** Locator for the execute/produce/generate button. */
   readonly executeButton = this.page.getByRole('button', { name: /execute|produce|generate/i });
   
   // Docs locators
+  /** Locator for the release docs button. */
   readonly releaseDocsButton = this.page.getByRole('button', { name: /release docs|publish html api docs|publish docs/i });
+  /** Locator for the view docs link. */
   readonly viewDocsLink = this.page.getByRole('link', { name: /view docs|cdd-docs-ui/i });
 
   // Cleanup Locators
+  /** Locator for the delete docs button. */
   readonly deleteDocsButton = this.page.getByRole('button', { name: /delete docs|unpublish docs/i });
+  /** Locator for the delete generation button. */
   readonly deleteGenerationButton = this.page.getByRole('button', { name: /delete generation|clean sdks|delete/i }).first();
+  /** Locator for the delete repository button. */
   readonly deleteRepoButton = this.page.getByRole('button', { name: /delete repo|delete repository|unlink/i });
+  /** Locator for the delete organization button. */
   readonly deleteOrgButton = this.page.getByRole('button', { name: /delete org|delete organization/i });
+  /** Locator for the delete account button. */
   readonly deleteAccountButton = this.page.getByRole('button', { name: /delete account|deregister/i });
+  /** Locator for the settings tab. */
   readonly settingsTab = this.page.getByRole('tab', { name: /settings/i });
 
+  /**
+   * Navigates to the home page, waits for network to be idle, 
+   * and automatically dismisses the WASM loading dialog if present.
+   * @returns A promise that resolves when navigation and dialog dismissal are complete.
+   */
   async navigateToHome(): Promise<void> {
     await this.page.goto('/');
     await this.page.waitForLoadState('networkidle');
     await this.dismissWasmDialog();
   }
 
+  /**
+   * Checks for and dismisses the large WASM payload dialog if it appears on the screen.
+   * @returns A promise that resolves once the dialog is no longer visible.
+   */
   async dismissWasmDialog(): Promise<void> {
     const loadWasmButton = this.page.getByRole('button', { name: /load ~295mb of wasm/i });
     if (await loadWasmButton.isVisible()) {
