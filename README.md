@@ -2,7 +2,6 @@ CDD Platform Operations (cdd-ops)
 =================================
 [![License](https://img.shields.io/badge/license-Apache--2.0%20OR%20MIT-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![full-e2e](https://github.com/SamuelMarks/cdd-ops/actions/workflows/full-e2e.yml/badge.svg)](https://github.com/SamuelMarks/cdd-ops/actions)
-[![e2e](https://github.com/SamuelMarks/cdd-ops/actions/workflows/e2e.yml/badge.svg)](https://github.com/SamuelMarks/cdd-ops/actions)
 
 This repository contains the infrastructure, orchestration, and deployment configurations for the Compiler Driven Development (CDD) ecosystem.
 
@@ -122,6 +121,33 @@ For more details, see the [Docker Compose Guide](docker/README.md).
 For production deployments, `cdd-ops` provides Helm charts and Kustomize manifests to deploy the CDD platform to a Kubernetes cluster.
 
 Please refer to the detailed [Kubernetes Guide](kubernetes/README.md) for configuration and deployment instructions.
+
+### 4. Native Deployment (Bare Metal & OS Packages)
+
+For environments where containerization (Docker/Kubernetes) is not preferred or available, the CDD ecosystem can be deployed natively on bare metal servers or virtual machines using standard OS-level package managers.
+
+The `scripts/deploy.sh` (or `scripts/deploy.cmd`) system utilizes `libscript` to generate native installers.
+
+**Available Package Formats:**
+*   **Debian/Ubuntu (`.deb`):** Deploys the Rust binaries, configures `systemd` services, and sets up Nginx as the gateway.
+*   **Windows Installer (`.msi` / `.exe`):** Installs the services as Windows Background Services.
+*   **macOS (`.pkg`):** Installs the binaries and configures `launchd` daemons for background execution.
+
+**Benefits of Native Deployment:**
+*   **Lower Overhead:** Direct access to host resources without container virtualization overhead.
+*   **System Integration:** Deep integration with OS-native tooling like `journalctl` for logs, `systemctl` for service management, and native firewall tools.
+*   **Performance:** Maximum disk and network I/O performance, which is highly beneficial for heavy `cdd-engine` code generation workloads.
+
+**Typical Native Architecture:**
+1.  **Reverse Proxy:** `nginx` or `haproxy` installed via system packages (`apt`/`brew`), configured to replace `cdd-gateway`.
+2.  **Databases:** PostgreSQL and Valkey/Redis installed natively via system packages.
+3.  **CDD Services:** Installed via `.deb` or `.msi`. Each service (`cdd-control-plane`, `cdd-engine`, etc.) runs as a dedicated system user (e.g., `cdd-user`) with a corresponding OS service file ensuring automatic restarts and proper privilege isolation.
+
+To generate the native packages, run the build script with the native packaging flags:
+```bash
+# Example: Build a Debian package
+./scripts/deploy.sh --target deb
+```
 
 ## Testing
 

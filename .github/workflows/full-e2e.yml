@@ -60,10 +60,13 @@ jobs:
 
       - name: Checkout cdd-publisher
         uses: actions/checkout@v7
+        continue-on-error: true
         with:
           repository: ${{ github.repository_owner }}/cdd-publisher
           path: cdd-publisher
-          continue-on-error: true
+
+      - name: Install mise
+        uses: jdx/mise-action@v2
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
