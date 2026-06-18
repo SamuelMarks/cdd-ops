@@ -1,0 +1,95 @@
+name: Full Native E2E Pipeline
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  full-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout cdd-ops
+        uses: actions/checkout@v7
+        with:
+          path: cdd-ops
+
+      - name: Checkout libscript
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/libscript
+          path: libscript
+
+      - name: Checkout cdd-control-plane
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/cdd-control-plane
+          path: cdd-control-plane
+
+      - name: Checkout cdd-engine
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/cdd-engine
+          path: cdd-engine
+
+      - name: Checkout cdd-storage
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/cdd-storage
+          path: cdd-storage
+
+      - name: Checkout cdd-web-ui
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/cdd-web-ui
+          path: cdd-web-ui
+
+      - name: Checkout cdd-docs-ui
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/cdd-docs-ui
+          path: cdd-docs-ui
+
+      - name: Checkout cdd-gateway
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/cdd-gateway
+          path: cdd-gateway
+
+      - name: Checkout cdd-publisher
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/cdd-publisher
+          path: cdd-publisher
+          continue-on-error: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            cdd-control-plane
+            cdd-engine
+            cdd-storage
+            cdd-gateway
+
+      - name: Run Full E2E Test Suite
+        working-directory: ./cdd-ops
+        run: ./scripts/test.sh
+        
+      - name: Upload Playwright Report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: cdd-ops/e2e/playwright-report/
+          retention-days: 30

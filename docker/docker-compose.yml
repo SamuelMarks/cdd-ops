@@ -1,0 +1,16 @@
+version: "3.8"
+
+services:
+  gateway:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+  web-ui:
+    image: cdd-web-ui:latest
+  control-plane:
+    image: cdd-control-plane:latest
+  engine:
+    image: cdd-engine:latest
+  storage:
+    image: minio/minio
+    command: server /data
