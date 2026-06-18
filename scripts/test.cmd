@@ -1,8 +1,6 @@
 @echo off
 setlocal
 
-REM Use mise as the node manager
-set LIBSCRIPT_NODE_MANAGER=mise
 set LIBSCRIPT=..\libscript\libscript.cmd
 
 echo Setting up dependencies...

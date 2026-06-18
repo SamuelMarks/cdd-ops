@@ -14,29 +14,35 @@ for port in 8081 8082 8083 8084 8085 8086; do
     fi
 done
 
-# Use mise as the node manager
-export LIBSCRIPT_NODE_MANAGER="mise"
 LIBSCRIPT="../libscript/libscript.sh"
 
 echo "Setting up dependencies..."
 "$LIBSCRIPT" install rust
 "$LIBSCRIPT" install nodejs
 
-echo "Checking if databases are installed..."
-if ! "$LIBSCRIPT" test postgres >/dev/null 2>&1; then
-    "$LIBSCRIPT" install postgres
-else
-    echo "PostgreSQL is already installed."
+# Skip local installation if running in GitHub Actions (where services are provided)
+if [ -z "$GITHUB_ACTIONS" ]; then
+    echo "Checking if databases are installed..."
+    if ! "$LIBSCRIPT" test postgres >/dev/null 2>&1; then
+        "$LIBSCRIPT" install postgres
+    else
+        echo "PostgreSQL is already installed."
+    fi
+    
+    if ! "$LIBSCRIPT" test redis >/dev/null 2>&1 && ! "$LIBSCRIPT" test valkey >/dev/null 2>&1; then
+        "$LIBSCRIPT" install valkey
+    else
+        echo "Redis/Valkey is already installed."
+    fi
 fi
 
-if ! "$LIBSCRIPT" test redis >/dev/null 2>&1 && ! "$LIBSCRIPT" test valkey >/dev/null 2>&1; then
-    "$LIBSCRIPT" install valkey
-else
-    echo "Redis/Valkey is already installed."
-fi
+PG_HOST=${POSTGRES_HOST:-localhost}
+PG_USER=${POSTGRES_USER:-postgres}
+VALKEY_HOST=${VALKEY_HOST:-localhost}
+VALKEY_PORT=${VALKEY_PORT:-6379}
 
 echo "Setting up Postgres Database for local tests..."
-psql -U postgres -tc "SELECT 1 FROM pg_database WHERE datname = 'cdd'" | grep -q 1 || psql -U postgres -c "CREATE DATABASE cdd"
+psql -h $PG_HOST -U $PG_USER -tc "SELECT 1 FROM pg_database WHERE datname = 'cdd'" | grep -q 1 || psql -h $PG_HOST -U $PG_USER -c "CREATE DATABASE cdd"
 
 echo "Ensuring diesel_cli is installed..."
 if ! command -v diesel >/dev/null 2>&1; then
@@ -46,7 +52,7 @@ fi
 echo "Running Diesel Migrations via diesel cli..."
 (
     cd ../cdd-control-plane
-    DATABASE_URL="postgres://postgres@localhost/cdd" diesel migration run
+    DATABASE_URL="postgres://$PG_USER@$PG_HOST/cdd" diesel migration run
 )
 
 echo "Building and starting CDD microservices..."
@@ -55,7 +61,8 @@ echo "Building and starting CDD microservices..."
 # Note: cdd-gateway intentionally gets port 8086 because port 8080 is currently tied up by an active SSH process.
 # I will update Playwright to point to 8086.
 
-export CDD__DATABASE_URL="postgres://postgres@localhost/cdd"
+export CDD__DATABASE_URL="postgres://$PG_USER@$PG_HOST/cdd"
+export CDD__REDIS_URL="redis://$VALKEY_HOST:$VALKEY_PORT"
 
 echo "Starting cdd-control-plane..."
 (cd ../cdd-control-plane && CDD__SERVER_BIND=0.0.0.0:8081 cargo run) &

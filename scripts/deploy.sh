@@ -2,8 +2,6 @@
 
 set -e
 
-# Use mise as the node manager
-export LIBSCRIPT_NODE_MANAGER="mise"
 
 LIBSCRIPT="../libscript/libscript.sh"
 
