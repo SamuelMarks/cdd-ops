@@ -15,6 +15,11 @@ echo "Provisioning core dependencies..."
 "$LIBSCRIPT" install nodejs
 
 echo "Checking if databases are installed..."
+if ! command -v wait4x >/dev/null 2>&1; then
+    echo "Installing wait4x..."
+    "$LIBSCRIPT" install wait4x
+fi
+
 if ! "$LIBSCRIPT" test postgres >/dev/null 2>&1; then
     "$LIBSCRIPT" install postgres
 else
@@ -26,6 +31,9 @@ if ! "$LIBSCRIPT" test redis >/dev/null 2>&1 && ! "$LIBSCRIPT" test valkey >/dev
 else
     echo "Redis/Valkey is already installed."
 fi
+
+echo "Ensuring PostgreSQL is ready..."
+wait4x postgresql "postgres://postgres@localhost:5432/postgres?sslmode=disable" -t 60s
 
 echo "Setting up Postgres Database..."
 psql -U postgres -tc "SELECT 1 FROM pg_database WHERE datname = 'cdd'" | grep -q 1 || psql -U postgres -c "CREATE DATABASE cdd"

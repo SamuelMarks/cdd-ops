@@ -30,6 +30,11 @@ PG_USER=${POSTGRES_USER:-postgres}
 VALKEY_HOST=${VALKEY_HOST:-localhost}
 VALKEY_PORT=${VALKEY_PORT:-6379}
 
+if ! command -v wait4x >/dev/null 2>&1; then
+    echo "Installing wait4x..."
+    "$LIBSCRIPT" install wait4x
+fi
+
 # Skip local installation if running in GitHub Actions (where services are provided)
 if [ -z "$GITHUB_ACTIONS" ]; then
     echo "Checking if rust is installed..."
@@ -47,7 +52,7 @@ if [ -z "$GITHUB_ACTIONS" ]; then
     fi
 
     echo "Checking if databases are running or installed..."
-    if nc -z "$PG_HOST" "$PG_PORT" 2>/dev/null; then
+    if wait4x tcp "$PG_HOST:$PG_PORT" -t 1s >/dev/null 2>&1; then
         echo "PostgreSQL is already running on $PG_HOST:$PG_PORT."
     elif ! "$LIBSCRIPT" test postgres >/dev/null 2>&1; then
         "$LIBSCRIPT" install postgres
@@ -55,7 +60,7 @@ if [ -z "$GITHUB_ACTIONS" ]; then
         echo "PostgreSQL is already installed."
     fi
     
-    if nc -z "$VALKEY_HOST" "$VALKEY_PORT" 2>/dev/null; then
+    if wait4x tcp "$VALKEY_HOST:$VALKEY_PORT" -t 1s >/dev/null 2>&1; then
         echo "Redis/Valkey is already running on $VALKEY_HOST:$VALKEY_PORT."
     elif ! "$LIBSCRIPT" test redis >/dev/null 2>&1 && ! "$LIBSCRIPT" test valkey >/dev/null 2>&1; then
         "$LIBSCRIPT" install valkey
@@ -63,6 +68,12 @@ if [ -z "$GITHUB_ACTIONS" ]; then
         echo "Redis/Valkey is already installed."
     fi
 fi
+
+echo "Ensuring PostgreSQL is ready..."
+wait4x postgresql "postgres://${PG_USER}@${PG_HOST}:${PG_PORT}/postgres?sslmode=disable" -t 60s
+
+echo "Ensuring Redis/Valkey is ready..."
+wait4x redis "redis://${VALKEY_HOST}:${VALKEY_PORT}" -t 60s
 
 echo "Setting up Postgres Database for local tests..."
 psql -h $PG_HOST -U $PG_USER -tc "SELECT 1 FROM pg_database WHERE datname = 'cdd'" | grep -q 1 || psql -h $PG_HOST -U $PG_USER -c "CREATE DATABASE cdd"
@@ -106,17 +117,7 @@ echo "Starting cdd-gateway..."
 (cd ../cdd-gateway && CDD__SERVER_BIND=0.0.0.0:8086 cargo run) &
 
 echo "Waiting for Gateway to be healthy on port 8086..."
-MAX_RETRIES=180
-RETRY=0
-until curl -s -f http://localhost:8086/version >/dev/null 2>&1 && curl -s -f http://localhost:8086/api/v1/health >/dev/null 2>&1 && curl -s -f http://localhost:8086/ >/dev/null 2>&1; do
-    if [ "$RETRY" -ge "$MAX_RETRIES" ]; then
-        echo "Timeout waiting for gateway and downstream services to become healthy!"
-        exit 1
-    fi
-    RETRY=$(expr $RETRY + 1)
-    echo "Waiting for localhost:8086... ($RETRY/$MAX_RETRIES)"
-    sleep 2
-done
+wait4x http http://localhost:8086/version http://localhost:8086/api/v1/health http://localhost:8086/ --expect-status-code 200 -t 360s
 echo "Gateway and downstream services are up!"
 
 echo "Running E2E tests locally..."

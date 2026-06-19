@@ -109,6 +109,10 @@ jobs:
             cdd-storage
             cdd-gateway
 
+      - name: Install wait4x
+        working-directory: ./cdd-ops
+        run: ../libscript/libscript.sh install wait4x
+
       - name: Run Full E2E Test Suite
         working-directory: ./cdd-ops
         env:
