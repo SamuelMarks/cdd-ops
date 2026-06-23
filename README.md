@@ -186,7 +186,7 @@ The test definitions and Playwright configuration can be found in the `e2e/` dir
 | [cdd-csharp](https://github.com/SamuelMarks/cdd-csharp) | OpenAPI ↔ C# | [![CI](https://github.com/SamuelMarks/cdd-csharp/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-csharp/actions) |
 | [cdd-go](https://github.com/SamuelMarks/cdd-go) | OpenAPI ↔ Go | [![CI](https://github.com/SamuelMarks/cdd-go/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-go/actions) |
 | [cdd-java](https://github.com/SamuelMarks/cdd-java) | OpenAPI ↔ Java | [![CI](https://github.com/SamuelMarks/cdd-java/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-java/actions) |
-| [cdd-kotlin](https://github.com/SamuelMarks/cdd-kotlin) | OpenAPI ↔ Kotlin: Compiler Driven Development for Kotlin. | [![CI](https://github.com/SamuelMarks/cdd-kotlin/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-kotlin/actions) |
+| [cdd-kotlin](https://github.com/offscale/cdd-kotlin) | OpenAPI ↔ Kotlin: Compiler Driven Development for Kotlin. | [![CI](https://github.com/offscale/cdd-kotlin/workflows/CI/badge.svg)](https://github.com/offscale/cdd-kotlin/actions) |
 | [cdd-php](https://github.com/SamuelMarks/cdd-php) | OpenAPI ↔ PHP | [![CI](https://github.com/SamuelMarks/cdd-php/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-php/actions) |
 | [cdd-python-all](https://github.com/offscale/cdd-python-all) | OpenAPI ↔ Python | [![CI](https://github.com/offscale/cdd-python-all/workflows/CI/badge.svg)](https://github.com/offscale/cdd-python-all/actions) |
 | [cdd-ruby](https://github.com/SamuelMarks/cdd-ruby) | OpenAPI ↔ Ruby | [![CI](https://github.com/SamuelMarks/cdd-ruby/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-ruby/actions) |
