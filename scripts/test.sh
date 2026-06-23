@@ -101,14 +101,14 @@ export CDD__REDIS_URL="redis://$VALKEY_HOST:$VALKEY_PORT"
 echo "Starting cdd-control-plane..."
 (cd ../cdd-control-plane && CDD__SERVER_BIND=0.0.0.0:8081 cargo run) &
 
-echo "Starting cdd-engine..."
-(cd ../cdd-engine && CDD__SERVER_BIND=0.0.0.0:8084 cargo run) &
-
 echo "Starting cdd-storage..."
 (cd ../cdd-storage && PORT=8085 cargo run) &
 
 echo "Starting cdd-docs-ui..."
 (cd ../cdd-docs-ui && npm install && npm run build && npm run serve) &
+
+echo "Patching cdd-web-ui to use GITHUB_TOKEN..."
+sed -i.bak "s/{ headers: { 'User-Agent': 'node.js' } }/{ headers: { 'User-Agent': 'node.js', ...(process.env.GITHUB_TOKEN ? { Authorization: \`Bearer \${process.env.GITHUB_TOKEN}\` } : {}) } }/g" ../cdd-web-ui/scripts/build-wasm.mjs || true
 
 echo "Starting cdd-web-ui..."
 (cd ../cdd-web-ui && npm install && npm start) &

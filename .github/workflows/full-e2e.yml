@@ -125,6 +125,7 @@ jobs:
           POSTGRES_HOST: localhost
           POSTGRES_USER: postgres
           VALKEY_HOST: localhost
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./scripts/test.sh
         
       - name: Upload Playwright Report
