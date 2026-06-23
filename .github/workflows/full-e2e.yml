@@ -70,6 +70,12 @@ jobs:
           repository: ${{ github.repository_owner }}/cdd-web-ui
           path: cdd-web-ui
 
+      - name: Checkout cdd-browser-sdk
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/cdd-browser-sdk
+          path: cdd-browser-sdk
+
       - name: Checkout cdd-docs-ui
         uses: actions/checkout@v7
         with:
