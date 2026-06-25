@@ -59,7 +59,7 @@ if [ -z "$GITHUB_ACTIONS" ]; then
     else
         echo "PostgreSQL is already installed."
     fi
-    
+
     if wait4x tcp "$VALKEY_HOST:$VALKEY_PORT" -t 1s >/dev/null 2>&1; then
         echo "Redis/Valkey is already running on $VALKEY_HOST:$VALKEY_PORT."
     elif ! "$LIBSCRIPT" test redis >/dev/null 2>&1 && ! "$LIBSCRIPT" test valkey >/dev/null 2>&1; then

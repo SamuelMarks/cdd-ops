@@ -1,5 +1,5 @@
 # GitHub Actions Workflow: Full Native E2E Pipeline
-# 
+#
 # This workflow orchestrates the native End-to-End (E2E) testing pipeline for the CDD platform.
 # It checks out all necessary repositories (microservices, UI, and ops), provisions dependencies
 # (databases, Node.js, Rust), and executes the consolidated Playwright test suite using the
@@ -127,7 +127,7 @@ jobs:
           VALKEY_HOST: localhost
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./scripts/test.sh
-        
+
       - name: Upload Playwright Report
         if: always()
         uses: actions/upload-artifact@v7

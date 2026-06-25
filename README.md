@@ -38,13 +38,13 @@ graph TD
     ControlPlane -->|Execution| Engine
     ControlPlane -->|Read/Write| Storage
     ControlPlane -->|Trigger| Publisher
-    
+
     %% Databases
     subgraph Persistence
         PostgreSQL[(PostgreSQL)]
         Valkey[(Valkey / Redis)]
     end
-    
+
     ControlPlane --> PostgreSQL
     ControlPlane --> Valkey
     Engine --> Storage
@@ -74,17 +74,17 @@ sequenceDiagram
     participant DB as PostgreSQL
     participant Cargo as Cargo (Rust)
     participant NPM as NPM (Angular)
-    
+
     User->>DeployScript: Run deploy script
     DeployScript->>Libscript: Install Rust, Node.js, Postgres, Valkey
     DeployScript->>DB: Initialize 'cdd' database
-    
+
     par Build Backend
         DeployScript->>Cargo: cargo build (gateway, control-plane, engine, storage)
     and Build Frontend
         DeployScript->>NPM: npm run build (web-ui, docs-ui)
     end
-    
+
     DeployScript->>Libscript: Package as Docker/MSI/DEB
     DeployScript-->>User: Deployment Complete
 ```
@@ -153,7 +153,7 @@ To generate the native packages, run the build script with the native packaging 
 
 The platform utilizes a comprehensive End-to-End (E2E) testing suite based on [Playwright](https://playwright.dev/).
 
-The testing automation is handled by `scripts/test.sh` (or `scripts/test.cmd` on Windows), which ensures the environment is correctly provisioned before running the tests. 
+The testing automation is handled by `scripts/test.sh` (or `scripts/test.cmd` on Windows), which ensures the environment is correctly provisioned before running the tests.
 
 The test script performs the following:
 - Provisions required dependencies (Rust, Node.js, PostgreSQL, Valkey/Redis) via `libscript`.

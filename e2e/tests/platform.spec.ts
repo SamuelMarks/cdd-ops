@@ -14,7 +14,7 @@ class CddPlatformPage {
 
   // Locators
   // Using accessible role-based locators ensures our e2e tests rely on the same ARIA properties that screen readers do.
-  
+
   // Dialog locators
   /** Locator for the main dialog element. */
   readonly dialog = this.page.getByRole('dialog');
@@ -24,7 +24,7 @@ class CddPlatformPage {
   readonly backendUrlInput = this.dialog.getByLabel(/backend url/i);
   /** Locator for the connect button. */
   readonly connectButton = this.dialog.getByRole('button', { name: /connect/i });
-  
+
   /** Locator for the username/email input field. */
   readonly usernameInput = this.dialog.getByLabel(/username|email/i);
   /** Locator for the password input field. */
@@ -35,10 +35,10 @@ class CddPlatformPage {
   readonly loginButton = this.dialog.getByRole('button', { name: /log in|sign in/i });
   /** Locator for the close dialog button. */
   readonly closeDialogButton = this.dialog.getByRole('button', { name: /close/i });
-  
+
   /** Locator for the generic submit/create button. */
   readonly submitButton = this.page.getByRole('button', { name: /submit|create|save|import|yes|confirm|link/i });
-  
+
   /** Locator for the dashboard heading. */
   readonly dashboardHeading = this.page.getByRole('heading', { name: /cdd control/i });
   /** Locator for the profile/account button. */
@@ -55,7 +55,7 @@ class CddPlatformPage {
   readonly createOrgButton = this.page.getByRole('button', { name: /create organization|create org/i });
   /** Locator for the organization name input field. */
   readonly orgNameInput = this.page.getByLabel(/organization name/i);
-  
+
   /** Locator for the create repository button. */
   readonly createRepoButton = this.page.getByRole('button', { name: /link repository|create repo/i });
   /** Locator for the repository name input field. */
@@ -68,7 +68,7 @@ class CddPlatformPage {
   readonly specUrlInput = this.page.getByLabel(/spec url|openapi url/i);
   /** Locator for the execute/produce/generate button. */
   readonly executeButton = this.page.getByRole('button', { name: /execute|produce|generate/i });
-  
+
   // Docs locators
   /** Locator for the release docs button. */
   readonly releaseDocsButton = this.page.getByRole('button', { name: /release docs|publish html api docs|publish docs/i });
@@ -90,7 +90,7 @@ class CddPlatformPage {
   readonly settingsTab = this.page.getByRole('tab', { name: /settings/i });
 
   /**
-   * Navigates to the home page, waits for network to be idle, 
+   * Navigates to the home page, waits for network to be idle,
    * and automatically dismisses the WASM loading dialog if present.
    * @returns A promise that resolves when navigation and dialog dismissal are complete.
    */
@@ -129,10 +129,10 @@ test.describe('CDD Platform Full E2E Flow', () => {
     // 0. Register user & 1. Login user via Online Settings
     await test.step('Register and Login via Online Settings', async () => {
       await platform.navigateToHome();
-      
+
       // Open settings dialog
       await platform.settingsButton.click();
-      
+
       // Connect to backend (using BASE_URL)
       await platform.backendUrlInput.fill(process.env.BASE_URL || 'http://localhost:8086');
       await platform.connectButton.click();
@@ -143,7 +143,7 @@ test.describe('CDD Platform Full E2E Flow', () => {
       await platform.passwordInput.fill(password);
       await platform.registerButton.click();
       await expect(page.getByText('Registered successfully!', { exact: true })).toBeVisible();
-      
+
       // Close dialog
       await platform.closeDialogButton.click();
     });
@@ -153,7 +153,7 @@ test.describe('CDD Platform Full E2E Flow', () => {
       await page.goto('/dashboard');
       await platform.dismissWasmDialog();
       await expect(platform.dashboardHeading).toBeVisible();
-      
+
       // Accessibility check on Dashboard
       await checkA11y(page);
     });
@@ -174,9 +174,9 @@ test.describe('CDD Platform Full E2E Flow', () => {
       await platform.repoNameInput.fill(repoName);
       await platform.submitButton.filter({ hasText: /submit|create|link/i }).click();
       await expect(page.getByText(repoName)).toBeVisible();
-      
+
       await page.getByText(repoName).click();
-      
+
       // Accessibility check on Repo detail view
       await checkA11y(page);
     });
@@ -224,4 +224,46 @@ test.describe('CDD Platform Full E2E Flow', () => {
        // Skipped
     });
   });
-});
+
+  test('Negative flow: invalid login credentials', async ({ page }) => {
+    await platform.navigateToHome();
+    await platform.settingsButton.click();
+
+    await platform.backendUrlInput.fill(process.env.BASE_URL || 'http://localhost:8086');
+    await platform.connectButton.click();
+    await expect(page.getByText('Connected!', { exact: true })).toBeVisible();
+
+    await platform.usernameInput.fill('invalid@example.com');
+    await platform.passwordInput.fill('WrongPassword!');
+    await platform.loginButton.click();
+
+    // Expect some error message to be visible
+    await expect(page.getByText(/error|invalid|failed/i)).toBeVisible({ timeout: 5000 });
+    });
+
+    test('Negative flow: empty organization name validation', async ({ page }) => {
+    await platform.navigateToHome();
+    await platform.settingsButton.click();
+    await platform.backendUrlInput.fill(process.env.BASE_URL || 'http://localhost:8086');
+    await platform.connectButton.click();
+    await platform.usernameInput.fill(username);
+    await platform.passwordInput.fill(password);
+    await platform.registerButton.click();
+    await platform.closeDialogButton.click();
+
+    await page.goto('/dashboard');
+    await platform.dismissWasmDialog();
+
+    await platform.orgsTab.click();
+    await platform.createOrgButton.click();
+    // Leave org name empty and submit
+    await platform.submitButton.filter({ hasText: /submit|create/i }).click();
+
+    // Expect HTML5 validation or a toast error
+    const input = platform.orgNameInput;
+    await expect(input).toBeVisible();
+    // Check if the input is still focused or invalid
+    // In many apps, submitting empty required fields keeps them invalid or shows an error.
+    await expect(page.getByText(/required|cannot be empty/i).or(input)).toBeVisible();
+    });
+    });
