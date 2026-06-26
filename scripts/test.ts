@@ -23,7 +23,7 @@ const REDIS_URL = `redis://${VALKEY_HOST}:${VALKEY_PORT}`;
 const PORTS = [8081, 8082, 8083, 8084, 8085, 8086];
 
 // Ensure libscript uses mise to avoid fnm concurrency bugs
-process.env.NODEJS_INSTALL_METHOD = 'source';
+process.env.NODEJS_INSTALL_METHOD = 'mise';
 
 // Utils
 function runSync(command: string, cwd = REPO_ROOT, ignoreError = false, envVars: Record<string, string> = {}): void {
@@ -178,6 +178,7 @@ function setupDatabases() {
 function buildAndStartServices(): ChildProcess[] {
   console.log('Pre-building Rust services sequentially to avoid cargo lock contention...');
   runSync('cargo build', join(PARENT_DIR, 'cdd-control-plane'));
+  runSync('cargo build', join(PARENT_DIR, 'cdd-engine'));
   runSync('cargo build', join(PARENT_DIR, 'cdd-storage'));
   runSync('cargo build', join(PARENT_DIR, 'cdd-gateway'));
 
@@ -191,6 +192,12 @@ function buildAndStartServices(): ChildProcess[] {
   processes.push(runAsync('cargo', ['run'], join(PARENT_DIR, 'cdd-control-plane'), {
       ...envConfig,
       CDD__SERVER_BIND: '0.0.0.0:8081'
+  }));
+
+  console.log('Starting cdd-engine...');
+  processes.push(runAsync('cargo', ['run'], join(PARENT_DIR, 'cdd-engine'), {
+      ...envConfig,
+      CDD__SERVER_BIND: '0.0.0.0:8082'
   }));
 
   console.log('Starting cdd-storage...');

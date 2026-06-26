@@ -28,7 +28,7 @@ const MICROSERVICES = [
 ];
 
 // Ensure libscript uses mise to avoid fnm concurrency bugs
-process.env.NODEJS_INSTALL_METHOD = 'source';
+process.env.NODEJS_INSTALL_METHOD = 'mise';
 
 // Utils
 function runSync(command: string, cwd = REPO_ROOT, ignoreError = false): void {
