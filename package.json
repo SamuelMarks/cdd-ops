@@ -1,0 +1,31 @@
+{
+  "name": "cdd-ops",
+  "version": "1.0.0",
+  "description": "CDD Platform Operations (cdd-ops) ================================= [![License](https://img.shields.io/badge/license-Apache--2.0%20OR%20MIT-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![full-e2e](https://github.com/SamuelMarks/cdd-ops/actions/workflows/full-e2e.yml/badge.svg)](https://github.com/SamuelMarks/cdd-ops/actions)",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "tsx scripts/test.ts",
+    "deploy": "tsx scripts/deploy.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SamuelMarks/cdd-ops.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/SamuelMarks/cdd-ops/issues"
+  },
+  "homepage": "https://github.com/SamuelMarks/cdd-ops#readme",
+  "devDependencies": {
+    "@types/node": "^26.0.1",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  }
+}

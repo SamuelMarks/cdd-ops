@@ -126,7 +126,9 @@ jobs:
           POSTGRES_USER: postgres
           VALKEY_HOST: localhost
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./scripts/test.sh
+        run: |
+          npm install
+          npm run test
 
       - name: Upload Playwright Report
         if: always()
