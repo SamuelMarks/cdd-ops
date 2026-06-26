@@ -26,10 +26,10 @@ const PORTS = [8081, 8082, 8083, 8084, 8085, 8086];
 process.env.NODEJS_INSTALL_METHOD = 'source';
 
 // Utils
-function runSync(command: string, cwd = REPO_ROOT, ignoreError = false): void {
+function runSync(command: string, cwd = REPO_ROOT, ignoreError = false, envVars: Record<string, string> = {}): void {
   try {
     console.log(`> ${command}`);
-    execSync(command, { cwd, stdio: 'inherit', env: process.env });
+    execSync(command, { cwd, stdio: 'inherit', env: { ...process.env, ...envVars } });
   } catch (error) {
     if (!ignoreError) {
       console.error(`Command failed: ${command}`);
@@ -172,7 +172,7 @@ function setupDatabases() {
   }
 
   console.log('Running Diesel Migrations via diesel cli...');
-  runSync('diesel migration run', join(PARENT_DIR, 'cdd-control-plane'), false);
+  runSync('diesel migration run', join(PARENT_DIR, 'cdd-control-plane'), false, { DATABASE_URL });
 }
 
 function buildAndStartServices(): ChildProcess[] {
