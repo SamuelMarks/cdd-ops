@@ -103,9 +103,9 @@ function ensureWait4x() {
 }
 
 function ensureDependencies() {
-  ensureWait4x();
-
   if (!process.env.GITHUB_ACTIONS) {
+    ensureWait4x();
+
     console.log('Checking if rust is installed...');
     try {
       execSync(`"${LIBSCRIPT}" test rust`, { stdio: 'ignore' });
@@ -265,6 +265,7 @@ function buildAndStartServices(): ChildProcess[] {
   };
 
   const cpSvc = getOrBuildRustService('cdd-control-plane', binDir, cargoEnv);
+  const engineSvc = getOrBuildRustService('cdd-engine', binDir, cargoEnv);
   const storageSvc = getOrBuildRustService('cdd-storage', binDir, cargoEnv);
   const gatewaySvc = getOrBuildRustService('cdd-gateway', binDir, cargoEnv);
 
@@ -279,6 +280,12 @@ function buildAndStartServices(): ChildProcess[] {
   processes.push(runAsync(cpSvc.cmd, cpSvc.args, cpSvc.cwd, {
       ...envConfig,
       CDD__SERVER_BIND: '0.0.0.0:8081'
+  }));
+
+  console.log('Starting cdd-engine...');
+  processes.push(runAsync(engineSvc.cmd, engineSvc.args, engineSvc.cwd, {
+      ...envConfig,
+      CDD__SERVER_BIND: '0.0.0.0:8082'
   }));
 
   console.log('Starting cdd-storage...');

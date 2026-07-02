@@ -40,12 +40,6 @@ jobs:
         with:
           path: cdd-ops
 
-      - name: Checkout libscript
-        uses: actions/checkout@v7
-        with:
-          repository: ${{ github.repository_owner }}/libscript
-          path: libscript
-
       - name: Checkout cdd-control-plane
         uses: actions/checkout@v7
         with:
@@ -95,9 +89,6 @@ jobs:
           repository: ${{ github.repository_owner }}/cdd-publisher
           path: cdd-publisher
 
-      - name: Install mise
-        uses: jdx/mise-action@v4
-
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
@@ -116,8 +107,8 @@ jobs:
             cdd-gateway
 
       - name: Install wait4x
-        working-directory: ./cdd-ops
-        run: ../libscript/libscript.sh install wait4x
+        run: |
+          curl -sSL https://github.com/atkrad/wait4x/releases/latest/download/wait4x-linux-amd64.tar.gz | tar -xz -C /usr/local/bin wait4x
 
       - name: Run Full E2E Test Suite
         working-directory: ./cdd-ops
