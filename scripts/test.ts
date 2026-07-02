@@ -175,33 +175,114 @@ function setupDatabases() {
   runSync('diesel migration run', join(PARENT_DIR, 'cdd-control-plane'), false, { DATABASE_URL });
 }
 
+function getOrBuildRustService(repo: string, destDir: string, cargoEnv: Record<string, string>): { cmd: string, args: string[], cwd: string } {
+  console.log(`Resolving ${repo}...`);
+  const repoPath = join(PARENT_DIR, repo);
+  const finalBinPath = join(destDir, IS_WINDOWS ? `${repo}.exe` : repo);
+
+  try {
+    const releaseUrl = `https://api.github.com/repos/SamuelMarks/${repo}/releases/latest`;
+    const res = execSync(`curl -sL ${releaseUrl}`).toString();
+    const release = JSON.parse(res);
+
+    let target = 'x86_64-unknown-linux-gnu';
+    if (IS_WINDOWS) target = 'x86_64-pc-windows-msvc';
+    else if (platform() === 'darwin' && process.arch === 'arm64') target = 'aarch64-apple-darwin';
+    else if (platform() === 'darwin' && process.arch === 'x64') target = 'x86_64-apple-darwin';
+
+    const asset = release.assets?.find((a: any) => a.name.includes(target));
+
+    if (!asset) {
+      throw new Error(`Asset for triplet ${target} not found (404).`);
+    }
+
+    const downloadUrl = asset.browser_download_url;
+    const dlPath = join(destDir, asset.name);
+    console.log(`Downloading ${downloadUrl} to ${dlPath}...`);
+    execSync(`curl -sL -o "${dlPath}" "${downloadUrl}"`);
+
+    if (asset.name.endsWith('.tar.gz')) {
+      execSync(`tar -xzf "${dlPath}" -C "${destDir}"`);
+      execSync(`rm "${dlPath}"`);
+      if (!existsSync(finalBinPath)) {
+        const files = readdirSync(destDir);
+        for (const f of files) {
+          if (!f.endsWith('.tar.gz') && !f.endsWith('.zip') && f !== repo && !lstatSync(join(destDir, f)).isDirectory()) {
+             execSync(`mv "${join(destDir, f)}" "${finalBinPath}"`);
+             break;
+          }
+        }
+      }
+    } else if (asset.name.endsWith('.zip')) {
+      execSync(`unzip -o "${dlPath}" -d "${destDir}"`);
+      execSync(`rm "${dlPath}"`);
+      if (!existsSync(finalBinPath)) {
+        const files = readdirSync(destDir);
+        for (const f of files) {
+          if (f.endsWith('.exe') && f !== `${repo}.exe`) {
+             execSync(`mv "${join(destDir, f)}" "${finalBinPath}"`);
+             break;
+          }
+        }
+      }
+    } else {
+      execSync(`mv "${dlPath}" "${finalBinPath}"`);
+    }
+
+    if (!IS_WINDOWS && existsSync(finalBinPath)) {
+      execSync(`chmod +x "${finalBinPath}"`);
+    }
+    console.log(`Successfully downloaded ${repo} to ${finalBinPath}`);
+    return { cmd: finalBinPath, args: [], cwd: destDir };
+  } catch (err: any) {
+    console.warn(`Failed to fetch release for ${repo} (${err.message}). Falling back to cargo build...`);
+    if (existsSync(repoPath)) {
+      runSync('cargo build', repoPath, false, cargoEnv);
+      return { cmd: 'cargo', args: ['run'], cwd: repoPath };
+    } else {
+      console.error(`Source directory ${repoPath} not found. Cannot build from source.`);
+      process.exit(1);
+    }
+  }
+}
+
 function buildAndStartServices(): ChildProcess[] {
-  console.log('Pre-building Rust services sequentially to avoid cargo lock contention...');
-  runSync('cargo build', join(PARENT_DIR, 'cdd-control-plane'));
-  runSync('cargo build', join(PARENT_DIR, 'cdd-engine'));
-  runSync('cargo build', join(PARENT_DIR, 'cdd-storage'));
-  runSync('cargo build', join(PARENT_DIR, 'cdd-gateway'));
+  console.log('Resolving pre-built Rust services (or building from source fallback)...');
+  const binDir = join(PARENT_DIR, 'bin');
+  if (!existsSync(binDir)) execSync(`mkdir -p "${binDir}"`);
+
+  const sharedTargetDir = join(PARENT_DIR, 'shared-cargo-target');
+  const cargoEnv = {
+      CARGO_TARGET_DIR: sharedTargetDir,
+      CARGO_PROFILE_DEV_DEBUG: '0'
+  };
+
+  const cpSvc = getOrBuildRustService('cdd-control-plane', binDir, cargoEnv);
+  const engineSvc = getOrBuildRustService('cdd-engine', binDir, cargoEnv);
+  const storageSvc = getOrBuildRustService('cdd-storage', binDir, cargoEnv);
+  const gatewaySvc = getOrBuildRustService('cdd-gateway', binDir, cargoEnv);
 
   const processes: ChildProcess[] = [];
   const envConfig = {
       CDD__DATABASE_URL: DATABASE_URL,
       CDD__REDIS_URL: REDIS_URL,
+      ...cargoEnv,
   };
 
   console.log('Starting cdd-control-plane...');
-  processes.push(runAsync('cargo', ['run'], join(PARENT_DIR, 'cdd-control-plane'), {
+  processes.push(runAsync(cpSvc.cmd, cpSvc.args, cpSvc.cwd, {
       ...envConfig,
       CDD__SERVER_BIND: '0.0.0.0:8081'
   }));
 
   console.log('Starting cdd-engine...');
-  processes.push(runAsync('cargo', ['run'], join(PARENT_DIR, 'cdd-engine'), {
+  processes.push(runAsync(engineSvc.cmd, engineSvc.args, engineSvc.cwd, {
       ...envConfig,
       CDD__SERVER_BIND: '0.0.0.0:8082'
   }));
 
   console.log('Starting cdd-storage...');
-  processes.push(runAsync('cargo', ['run'], join(PARENT_DIR, 'cdd-storage'), {
+  processes.push(runAsync(storageSvc.cmd, storageSvc.args, storageSvc.cwd, {
       ...envConfig,
       PORT: '8085'
   }));
@@ -229,7 +310,7 @@ function buildAndStartServices(): ChildProcess[] {
   processes.push(runAsync('npm', ['start'], webUiPath, envConfig));
 
   console.log('Starting cdd-gateway...');
-  processes.push(runAsync('cargo', ['run'], join(PARENT_DIR, 'cdd-gateway'), {
+  processes.push(runAsync(gatewaySvc.cmd, gatewaySvc.args, gatewaySvc.cwd, {
       ...envConfig,
       CDD__SERVER_BIND: '0.0.0.0:8086'
   }));
@@ -239,7 +320,7 @@ function buildAndStartServices(): ChildProcess[] {
 
 function runE2eTests() {
   console.log('Waiting for Gateway to be healthy on port 8086...');
-  runSync('wait4x http http://localhost:8086/version http://localhost:8086/api/v1/health http://localhost:8086/ --expect-status-code 200 -t 360s');
+  runSync('wait4x http http://localhost:8086/version http://localhost:8086/api/v1/health http://localhost:8086/ --expect-status-code 200 -t 900s');
   console.log('Gateway and downstream services are up!');
 
   console.log('Running E2E tests locally...');

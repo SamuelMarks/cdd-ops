@@ -107,20 +107,94 @@ function setupDatabases() {
   runSync(createDbCmd);
 }
 
-function buildMicroservices() {
-  console.log('Building cdd-* repositories in-place...');
-  for (const repo of MICROSERVICES) {
-    const repoPath = join(PARENT_DIR, repo);
-    if (existsSync(repoPath) && lstatSync(repoPath).isDirectory()) {
-      console.log(`Building ${repo}...`);
-      if (existsSync(join(repoPath, 'Cargo.toml'))) {
-        runSync('cargo build', repoPath);
-      } else if (existsSync(join(repoPath, 'package.json'))) {
-        runSync('npm install', repoPath);
-        runSync('npm run build --if-present', repoPath);
+function getOrBuildRustService(repo: string, destDir: string) {
+  console.log(`Resolving ${repo}...`);
+  const repoPath = join(PARENT_DIR, repo);
+  const finalBinPath = join(destDir, IS_WINDOWS ? `${repo}.exe` : repo);
+
+  try {
+    const releaseUrl = `https://api.github.com/repos/SamuelMarks/${repo}/releases/latest`;
+    const res = execSync(`curl -sL ${releaseUrl}`).toString();
+    const release = JSON.parse(res);
+
+    let target = 'x86_64-unknown-linux-gnu';
+    if (IS_WINDOWS) target = 'x86_64-pc-windows-msvc';
+    else if (platform() === 'darwin' && process.arch === 'arm64') target = 'aarch64-apple-darwin';
+    else if (platform() === 'darwin' && process.arch === 'x64') target = 'x86_64-apple-darwin';
+
+    const asset = release.assets?.find((a: any) => a.name.includes(target));
+
+    if (!asset) {
+      throw new Error(`Asset for triplet ${target} not found (404).`);
+    }
+
+    const downloadUrl = asset.browser_download_url;
+    const dlPath = join(destDir, asset.name);
+    console.log(`Downloading ${downloadUrl} to ${dlPath}...`);
+    execSync(`curl -sL -o "${dlPath}" "${downloadUrl}"`);
+
+    if (asset.name.endsWith('.tar.gz')) {
+      execSync(`tar -xzf "${dlPath}" -C "${destDir}"`);
+      execSync(`rm "${dlPath}"`);
+      if (!existsSync(finalBinPath)) {
+        const files = readdirSync(destDir);
+        for (const f of files) {
+          if (!f.endsWith('.tar.gz') && !f.endsWith('.zip') && f !== repo && !lstatSync(join(destDir, f)).isDirectory()) {
+             execSync(`mv "${join(destDir, f)}" "${finalBinPath}"`);
+             break;
+          }
+        }
+      }
+    } else if (asset.name.endsWith('.zip')) {
+      execSync(`unzip -o "${dlPath}" -d "${destDir}"`);
+      execSync(`rm "${dlPath}"`);
+      if (!existsSync(finalBinPath)) {
+        const files = readdirSync(destDir);
+        for (const f of files) {
+          if (f.endsWith('.exe') && f !== `${repo}.exe`) {
+             execSync(`mv "${join(destDir, f)}" "${finalBinPath}"`);
+             break;
+          }
+        }
       }
     } else {
-      console.log(`Warning: Repository ${repoPath} not found, skipping.`);
+      execSync(`mv "${dlPath}" "${finalBinPath}"`);
+    }
+
+    if (!IS_WINDOWS && existsSync(finalBinPath)) {
+      execSync(`chmod +x "${finalBinPath}"`);
+    }
+    console.log(`Successfully downloaded ${repo} to ${finalBinPath}`);
+  } catch (err: any) {
+    console.warn(`Failed to fetch release for ${repo} (${err.message}). Falling back to cargo build...`);
+    if (existsSync(repoPath)) {
+      runSync('cargo build', repoPath);
+    } else {
+      console.warn(`Source directory ${repoPath} not found. Skipping build.`);
+    }
+  }
+}
+
+function buildMicroservices() {
+  console.log('Building and downloading cdd-* repositories...');
+  const binDir = join(PARENT_DIR, 'bin');
+  if (!existsSync(binDir)) execSync(`mkdir -p "${binDir}"`);
+
+  for (const repo of MICROSERVICES) {
+    const isRustBinary = ['cdd-control-plane', 'cdd-engine', 'cdd-storage', 'cdd-gateway', 'cdd-publisher'].includes(repo);
+    if (isRustBinary) {
+      getOrBuildRustService(repo, binDir);
+    } else {
+      const repoPath = join(PARENT_DIR, repo);
+      if (existsSync(repoPath) && lstatSync(repoPath).isDirectory()) {
+        console.log(`Building UI/Docs ${repo}...`);
+        if (existsSync(join(repoPath, 'package.json'))) {
+          runSync('npm install', repoPath);
+          runSync('npm run build --if-present', repoPath);
+        }
+      } else {
+        console.log(`Warning: Repository ${repoPath} not found, skipping.`);
+      }
     }
   }
 }

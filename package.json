@@ -23,7 +23,7 @@
   },
   "homepage": "https://github.com/SamuelMarks/cdd-ops#readme",
   "devDependencies": {
-    "@types/node": "^26.0.1",
+    "@types/node": "^26.1.0",
     "ts-node": "^10.9.2",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3"
