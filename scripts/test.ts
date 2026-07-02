@@ -182,7 +182,8 @@ function getOrBuildRustService(repo: string, destDir: string, cargoEnv: Record<s
 
   try {
     const releaseUrl = `https://api.github.com/repos/SamuelMarks/${repo}/releases/latest`;
-    const res = execSync(`curl -sL ${releaseUrl}`).toString();
+    const curlOpts = process.env.GITHUB_TOKEN ? `-H "Authorization: token ${process.env.GITHUB_TOKEN}"` : '';
+    const res = execSync(`curl -sL ${curlOpts} ${releaseUrl}`).toString();
     const release = JSON.parse(res);
 
     let target = 'x86_64-unknown-linux-gnu';
@@ -202,29 +203,35 @@ function getOrBuildRustService(repo: string, destDir: string, cargoEnv: Record<s
     execSync(`curl -sL -o "${dlPath}" "${downloadUrl}"`);
 
     if (asset.name.endsWith('.tar.gz')) {
-      execSync(`tar -xzf "${dlPath}" -C "${destDir}"`);
+      const tempDir = join(destDir, `temp-${repo}`);
+      execSync(`mkdir -p "${tempDir}"`);
+      execSync(`tar -xzf "${dlPath}" -C "${tempDir}"`);
       execSync(`rm "${dlPath}"`);
       if (!existsSync(finalBinPath)) {
-        const files = readdirSync(destDir);
+        const files = readdirSync(tempDir);
         for (const f of files) {
-          if (!f.endsWith('.tar.gz') && !f.endsWith('.zip') && f !== repo && !lstatSync(join(destDir, f)).isDirectory()) {
-             execSync(`mv "${join(destDir, f)}" "${finalBinPath}"`);
+          if (!f.endsWith('.tar.gz') && !f.endsWith('.zip') && !lstatSync(join(tempDir, f)).isDirectory()) {
+             execSync(`mv "${join(tempDir, f)}" "${finalBinPath}"`);
              break;
           }
         }
       }
+      execSync(`rm -rf "${tempDir}"`);
     } else if (asset.name.endsWith('.zip')) {
-      execSync(`unzip -o "${dlPath}" -d "${destDir}"`);
+      const tempDir = join(destDir, `temp-${repo}`);
+      execSync(`mkdir -p "${tempDir}"`);
+      execSync(`unzip -o "${dlPath}" -d "${tempDir}"`);
       execSync(`rm "${dlPath}"`);
       if (!existsSync(finalBinPath)) {
-        const files = readdirSync(destDir);
+        const files = readdirSync(tempDir);
         for (const f of files) {
-          if (f.endsWith('.exe') && f !== `${repo}.exe`) {
-             execSync(`mv "${join(destDir, f)}" "${finalBinPath}"`);
+          if (f.endsWith('.exe') || (!f.includes('.') && !lstatSync(join(tempDir, f)).isDirectory())) {
+             execSync(`mv "${join(tempDir, f)}" "${finalBinPath}"`);
              break;
           }
         }
       }
+      execSync(`rm -rf "${tempDir}"`);
     } else {
       execSync(`mv "${dlPath}" "${finalBinPath}"`);
     }
@@ -238,7 +245,7 @@ function getOrBuildRustService(repo: string, destDir: string, cargoEnv: Record<s
     console.warn(`Failed to fetch release for ${repo} (${err.message}). Falling back to cargo build...`);
     if (existsSync(repoPath)) {
       runSync('cargo build', repoPath, false, cargoEnv);
-      return { cmd: 'cargo', args: ['run'], cwd: repoPath };
+      return { cmd: 'cargo', args: ['run', '--bin', repo], cwd: repoPath };
     } else {
       console.error(`Source directory ${repoPath} not found. Cannot build from source.`);
       process.exit(1);
@@ -258,7 +265,6 @@ function buildAndStartServices(): ChildProcess[] {
   };
 
   const cpSvc = getOrBuildRustService('cdd-control-plane', binDir, cargoEnv);
-  const engineSvc = getOrBuildRustService('cdd-engine', binDir, cargoEnv);
   const storageSvc = getOrBuildRustService('cdd-storage', binDir, cargoEnv);
   const gatewaySvc = getOrBuildRustService('cdd-gateway', binDir, cargoEnv);
 
@@ -273,12 +279,6 @@ function buildAndStartServices(): ChildProcess[] {
   processes.push(runAsync(cpSvc.cmd, cpSvc.args, cpSvc.cwd, {
       ...envConfig,
       CDD__SERVER_BIND: '0.0.0.0:8081'
-  }));
-
-  console.log('Starting cdd-engine...');
-  processes.push(runAsync(engineSvc.cmd, engineSvc.args, engineSvc.cwd, {
-      ...envConfig,
-      CDD__SERVER_BIND: '0.0.0.0:8082'
   }));
 
   console.log('Starting cdd-storage...');
