@@ -1,7 +1,7 @@
 CDD Platform Operations (cdd-ops)
 =================================
 [![License](https://img.shields.io/badge/license-Apache--2.0%20OR%20MIT-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![full-e2e](https://github.com/SamuelMarks/cdd-ops/actions/workflows/full-e2e.yml/badge.svg)](https://github.com/SamuelMarks/cdd-ops/actions)
+[![CI](https://github.com/SamuelMarks/cdd-ops/actions/workflows/ci.yml/badge.svg)](https://github.com/SamuelMarks/cdd-ops/actions)
 
 This repository contains the infrastructure, orchestration, and deployment configurations for the Compiler Driven Development (CDD) ecosystem.
 
@@ -199,7 +199,6 @@ The test definitions and Playwright configuration can be found in the `e2e/` dir
 | [cdd-engine](https://github.com/SamuelMarks/cdd-engine) | The core execution engine for the cdd-* toolchain. | [![CI](https://github.com/SamuelMarks/cdd-engine/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-engine/actions) |
 | [cdd-gateway](https://github.com/SamuelMarks/cdd-gateway) | API Gateway and management plane for the cdd-* toolchain. | [![CI](https://github.com/SamuelMarks/cdd-gateway/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-gateway/actions) |
 | [cdd-openapi-test-harness](https://github.com/SamuelMarks/cdd-openapi-test-harness) | OpenAPI shared test harness for Compiler Driven Development (CDD) | [![CI](https://github.com/SamuelMarks/cdd-openapi-test-harness/actions/workflows/roundtrip.yml/badge.svg)](https://github.com/SamuelMarks/cdd-openapi-test-harness/actions) |
-| [cdd-ops](https://github.com/SamuelMarks/cdd-ops) | Deploy and test cdd-* suite + web + APIs + databases | [![CI](https://github.com/SamuelMarks/cdd-ops/actions/workflows/full-e2e.yml/badge.svg)](https://github.com/SamuelMarks/cdd-ops/actions) |
 | [cdd-publisher](https://github.com/SamuelMarks/cdd-publisher) | CDD Publisher service | [![CI](https://github.com/SamuelMarks/cdd-publisher/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-publisher/actions) |
 | [cdd-storage](https://github.com/SamuelMarks/cdd-storage) | CDD Storage service | [![CI](https://github.com/SamuelMarks/cdd-storage/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-storage/actions) |
 | [cdd-web-ui](https://github.com/SamuelMarks/cdd-web-ui) | CDD (OpenAPI ↔ lang) unified into project-oriented web dashboards | [![CI](https://github.com/SamuelMarks/cdd-web-ui/workflows/CI/badge.svg)](https://github.com/SamuelMarks/cdd-web-ui/actions) |

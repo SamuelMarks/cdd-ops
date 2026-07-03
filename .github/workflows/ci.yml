@@ -5,7 +5,7 @@
 # (databases, Node.js, Rust), and executes the consolidated Playwright test suite using the
 # local ops scripts, ensuring that integration across all services functions correctly.
 
-name: Full Native E2E Pipeline
+name: CI
 
 on:
   push:
@@ -31,7 +31,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
       valkey:
-        image: valkey/valkey:latest
+        image: valkey/valkey:9-alpine
         ports:
           - 6379:6379
     steps:
@@ -108,7 +108,7 @@ jobs:
 
       - name: Install wait4x
         run: |
-          curl -sSL https://github.com/atkrad/wait4x/releases/latest/download/wait4x-linux-amd64.tar.gz | tar -xz -C /usr/local/bin wait4x
+          curl -sSL https://github.com/atkrad/wait4x/releases/latest/download/wait4x-linux-amd64.tar.gz | sudo tar -xz -C /usr/local/bin wait4x
 
       - name: Run Full E2E Test Suite
         working-directory: ./cdd-ops
