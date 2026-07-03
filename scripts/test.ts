@@ -4,8 +4,8 @@ import { resolve, join } from 'node:path';
 import { existsSync, readdirSync, lstatSync, readFileSync, writeFileSync } from 'node:fs';
 
 // Constants
-const LIBSCRIPT_SH = resolve(__dirname, '../../libscript/libscript.sh');
-const LIBSCRIPT_CMD = resolve(__dirname, '../../libscript/libscript.cmd');
+const LIBSCRIPT_SH = resolve(__dirname, '..', '..', 'libscript', 'libscript.sh');
+const LIBSCRIPT_CMD = resolve(__dirname, '..', '..', 'libscript', 'libscript.cmd');
 const IS_WINDOWS = platform() === 'win32';
 const LIBSCRIPT = IS_WINDOWS ? LIBSCRIPT_CMD : LIBSCRIPT_SH;
 const REPO_ROOT = resolve(__dirname, '..');
@@ -307,7 +307,8 @@ function buildAndStartServices(): ChildProcess[] {
   console.log('Starting cdd-web-ui...');
   const webUiPath = join(PARENT_DIR, 'cdd-web-ui');
   runSync('npm install', webUiPath);
-  processes.push(runAsync('npm', ['start'], webUiPath, envConfig));
+  runSync('npm run build', webUiPath);
+  processes.push(runAsync('npx', ['--yes', 'serve', '-s', join('dist', 'cdd-web-ui', 'browser'), '-l', '8083'], webUiPath, envConfig));
 
   console.log('Starting cdd-gateway...');
   processes.push(runAsync(gatewaySvc.cmd, gatewaySvc.args, gatewaySvc.cwd, {

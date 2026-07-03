@@ -4,8 +4,8 @@ import { resolve, join } from 'node:path';
 import { existsSync, readdirSync, lstatSync } from 'node:fs';
 
 // Constants
-const LIBSCRIPT_SH = resolve(__dirname, '../../libscript/libscript.sh');
-const LIBSCRIPT_CMD = resolve(__dirname, '../../libscript/libscript.cmd');
+const LIBSCRIPT_SH = resolve(__dirname, '..', '..', 'libscript', 'libscript.sh');
+const LIBSCRIPT_CMD = resolve(__dirname, '..', '..', 'libscript', 'libscript.cmd');
 const IS_WINDOWS = platform() === 'win32';
 const LIBSCRIPT = IS_WINDOWS ? LIBSCRIPT_CMD : LIBSCRIPT_SH;
 const REPO_ROOT = resolve(__dirname, '..');

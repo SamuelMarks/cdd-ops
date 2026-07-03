@@ -241,7 +241,7 @@ test.describe('CDD Platform Full E2E Flow', () => {
     await platform.loginButton.click();
 
     // Expect some error message to be visible
-    await expect(page.getByText(/error|invalid|failed/i)).toBeVisible({ timeout: 5000 });
+    await expect(platform.dialog.getByText(/error|invalid|failed/i)).toBeVisible({ timeout: 5000 });
     });
 
     test('Negative flow: empty organization name validation', async ({ page }) => {
