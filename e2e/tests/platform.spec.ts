@@ -32,7 +32,7 @@ class CddPlatformPage {
   /** Locator for the register/sign up button. */
   readonly registerButton = this.dialog.getByRole('button', { name: /register|sign up/i });
   /** Locator for the login/sign in button. */
-  readonly loginButton = this.dialog.getByRole('button', { name: /log in|sign in/i });
+  readonly loginButton = this.dialog.getByRole('button', { name: /^login$|^log in$|^sign in$/i });
   /** Locator for the close dialog button. */
   readonly closeDialogButton = this.dialog.getByRole('button', { name: /close/i });
 
@@ -114,14 +114,17 @@ class CddPlatformPage {
 }
 
 test.describe('CDD Platform Full E2E Flow', () => {
-  const username = `testuser_${Date.now()}@example.com`;
-  const password = 'TestPassword123!';
-  const orgName = `TestOrg_${Date.now()}`;
-  const repoName = `TestRepo_${Date.now()}`;
+  let username = '';
+  let password = 'TestPassword123!';
+  let orgName = '';
+  let repoName = '';
 
   let platform: CddPlatformPage;
 
   test.beforeEach(async ({ page }) => {
+    username = `testuser_${Date.now()}_${Math.random().toString(36).substring(7)}@example.com`;
+    orgName = `TestOrg_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    repoName = `TestRepo_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     platform = new CddPlatformPage(page);
   });
 
@@ -249,6 +252,7 @@ test.describe('CDD Platform Full E2E Flow', () => {
     await platform.usernameInput.fill(username);
     await platform.passwordInput.fill(password);
     await platform.registerButton.click();
+    await expect(page.getByText('Registered successfully!', { exact: true })).toBeVisible();
     await platform.closeDialogButton.click();
 
     await page.goto('/dashboard');
@@ -256,10 +260,10 @@ test.describe('CDD Platform Full E2E Flow', () => {
 
     await platform.orgsTab.click();
     await platform.createOrgButton.click();
-    // Leave org name empty and submit
-    await platform.submitButton.filter({ hasText: /submit|create/i }).click();
+    // Leave org name empty and assert submit button is disabled
+    const submitBtn = platform.submitButton.filter({ hasText: /submit|create/i });
+    await expect(submitBtn).toBeDisabled();
 
-    // Expect HTML5 validation or a toast error
     const input = platform.orgNameInput;
     await expect(input).toBeVisible();
     // Check if the input is still focused or invalid
