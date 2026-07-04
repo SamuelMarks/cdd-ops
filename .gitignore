@@ -1,3 +1,5 @@
+coverage
+report
 playwright-report
 test-results
 node_modules

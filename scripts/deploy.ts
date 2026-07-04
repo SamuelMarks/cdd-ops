@@ -1,23 +1,23 @@
-import { execSync, spawn, ChildProcess } from 'node:child_process';
+import { execSync } from 'node:child_process';
 import { platform } from 'node:os';
 import { resolve, join } from 'node:path';
-import { existsSync, readdirSync, lstatSync } from 'node:fs';
+import { existsSync, readdirSync, lstatSync, mkdirSync, rmSync, renameSync, chmodSync } from 'node:fs';
 
 // Constants
-const LIBSCRIPT_SH = resolve(__dirname, '..', '..', 'libscript', 'libscript.sh');
-const LIBSCRIPT_CMD = resolve(__dirname, '..', '..', 'libscript', 'libscript.cmd');
-const IS_WINDOWS = platform() === 'win32';
-const LIBSCRIPT = IS_WINDOWS ? LIBSCRIPT_CMD : LIBSCRIPT_SH;
-const REPO_ROOT = resolve(__dirname, '..');
-const PARENT_DIR = resolve(REPO_ROOT, '..');
+export const LIBSCRIPT_SH = resolve(__dirname, '..', '..', 'libscript', 'libscript.sh');
+export const LIBSCRIPT_CMD = resolve(__dirname, '..', '..', 'libscript', 'libscript.cmd');
+export const IS_WINDOWS = platform() === 'win32';
+export const LIBSCRIPT = IS_WINDOWS ? LIBSCRIPT_CMD : LIBSCRIPT_SH;
+export const REPO_ROOT = resolve(__dirname, '..');
+export const PARENT_DIR = resolve(REPO_ROOT, '..');
 
-const PG_HOST = process.env.POSTGRES_HOST || 'localhost';
-const PG_PORT = process.env.POSTGRES_PORT || '5432';
-const PG_USER = process.env.POSTGRES_USER || 'postgres';
-const VALKEY_HOST = process.env.VALKEY_HOST || 'localhost';
-const VALKEY_PORT = process.env.VALKEY_PORT || '6379';
+export const PG_HOST = process.env.POSTGRES_HOST || 'localhost';
+export const PG_PORT = process.env.POSTGRES_PORT || '5432';
+export const PG_USER = process.env.POSTGRES_USER || 'postgres';
+export const VALKEY_HOST = process.env.VALKEY_HOST || 'localhost';
+export const VALKEY_PORT = process.env.VALKEY_PORT || '6379';
 
-const MICROSERVICES = [
+export const MICROSERVICES = [
   'cdd-gateway',
   'cdd-web-ui',
   'cdd-control-plane',
@@ -30,12 +30,17 @@ const MICROSERVICES = [
 // Ensure libscript uses mise to avoid fnm concurrency bugs
 process.env.NODEJS_INSTALL_METHOD = 'mise';
 
-// Utils
-function runSync(command: string, cwd = REPO_ROOT, ignoreError = false): void {
+/**
+ * Runs a shell command synchronously and pipes output to standard streams.
+ * @param command - The command to run.
+ * @param cwd - The working directory to execute in. Defaults to REPO_ROOT.
+ * @param ignoreError - If true, avoids exiting the process on error.
+ */
+export function runSync(command: string, cwd = REPO_ROOT, ignoreError = false, envVars: Record<string, string> = {}): void {
   try {
     console.log(`> ${command}`);
-    execSync(command, { cwd, stdio: 'inherit', env: process.env });
-  } catch (error) {
+    execSync(command, { cwd, stdio: 'inherit', env: { ...process.env, ...envVars } });
+  } catch (_error) {
     if (!ignoreError) {
       console.error(`Command failed: ${command}`);
       process.exit(1);
@@ -43,7 +48,12 @@ function runSync(command: string, cwd = REPO_ROOT, ignoreError = false): void {
   }
 }
 
-function hasCommand(command: string): boolean {
+/**
+ * Checks whether a given CLI command is available on the host system.
+ * @param command - The CLI command to check.
+ * @returns True if the command is available in PATH, false otherwise.
+ */
+export function hasCommand(command: string): boolean {
   try {
     const cmd = IS_WINDOWS ? `where ${command}` : `command -v ${command}`;
     execSync(cmd, { stdio: 'ignore' });
@@ -53,37 +63,42 @@ function hasCommand(command: string): boolean {
   }
 }
 
-// Ensure wait4x is installed
-function ensureWait4x() {
+/**
+ * Ensures the `wait4x` utility is installed via libscript.
+ */
+export function ensureWait4x(): void {
   if (!hasCommand('wait4x')) {
     console.log('Installing wait4x...');
-    runSync(`"${LIBSCRIPT}" install wait4x`);
+    runSync(`"${LIBSCRIPT}" wait4x install wait4x`);
   }
 }
 
-function ensureDependencies() {
+/**
+ * Validates and provisions the required core dependencies (Rust, Node, Postgres, Valkey).
+ */
+export function ensureDependencies(): void {
   console.log('Provisioning core dependencies...');
-  runSync(`"${LIBSCRIPT}" install rust`);
-  runSync(`"${LIBSCRIPT}" install nodejs`);
+  runSync(`"${LIBSCRIPT}" rust install rust`);
+  runSync(`"${LIBSCRIPT}" nodejs install nodejs`);
 
   console.log('Checking if databases are installed...');
   ensureWait4x();
 
   try {
-    execSync(`"${LIBSCRIPT}" test postgres`, { stdio: 'ignore' });
+    execSync(`"${LIBSCRIPT}" postgres test postgres`, { stdio: 'ignore' });
     console.log('PostgreSQL is already installed.');
   } catch {
-    runSync(`"${LIBSCRIPT}" install postgres`);
+    runSync(`"${LIBSCRIPT}" postgres install postgres`);
   }
 
   let hasValkey = false;
   let hasRedis = false;
   try {
-    execSync(`"${LIBSCRIPT}" test valkey`, { stdio: 'ignore' });
+    execSync(`"${LIBSCRIPT}" valkey test valkey`, { stdio: 'ignore' });
     hasValkey = true;
   } catch {}
   try {
-    execSync(`"${LIBSCRIPT}" test redis`, { stdio: 'ignore' });
+    execSync(`"${LIBSCRIPT}" redis test redis`, { stdio: 'ignore' });
     hasRedis = true;
   } catch {}
 
@@ -92,11 +107,14 @@ function ensureDependencies() {
   } else if (hasRedis) {
     console.log('Redis is already installed.');
   } else {
-    runSync(`"${LIBSCRIPT}" install valkey`);
+    runSync(`"${LIBSCRIPT}" valkey install valkey`);
   }
 }
 
-function setupDatabases() {
+/**
+ * Waits for databases to start and initializes the PostgreSQL database if absent.
+ */
+export function setupDatabases(): void {
   console.log('Ensuring PostgreSQL is ready...');
   runSync(`wait4x postgresql "postgres://${PG_USER}@${PG_HOST}:${PG_PORT}/postgres?sslmode=disable" -t 60s`);
 
@@ -107,7 +125,12 @@ function setupDatabases() {
   runSync(createDbCmd);
 }
 
-function getOrBuildRustService(repo: string, destDir: string) {
+/**
+ * Attempts to download a prebuilt release for a rust microservice or builds from source via Cargo as a fallback.
+ * @param repo - The GitHub repository name (e.g., 'cdd-gateway').
+ * @param destDir - The destination directory for the downloaded or built executable.
+ */
+export function getOrBuildRustService(repo: string, destDir: string): void {
   console.log(`Resolving ${repo}...`);
   const repoPath = join(PARENT_DIR, repo);
   const finalBinPath = join(destDir, IS_WINDOWS ? `${repo}.exe` : repo);
@@ -134,35 +157,35 @@ function getOrBuildRustService(repo: string, destDir: string) {
     execSync(`curl -sL -o "${dlPath}" "${downloadUrl}"`);
 
     if (asset.name.endsWith('.tar.gz')) {
-      execSync(`tar -xzf "${dlPath}" -C "${destDir}"`);
-      execSync(`rm "${dlPath}"`);
+      execSync(`tar -xf "${dlPath}" -C "${destDir}"`);
+      rmSync(dlPath, { force: true });
       if (!existsSync(finalBinPath)) {
         const files = readdirSync(destDir);
         for (const f of files) {
           if (!f.endsWith('.tar.gz') && !f.endsWith('.zip') && f !== repo && !lstatSync(join(destDir, f)).isDirectory()) {
-             execSync(`mv "${join(destDir, f)}" "${finalBinPath}"`);
+             renameSync(join(destDir, f), finalBinPath);
              break;
           }
         }
       }
     } else if (asset.name.endsWith('.zip')) {
-      execSync(`unzip -o "${dlPath}" -d "${destDir}"`);
-      execSync(`rm "${dlPath}"`);
+      execSync(`tar -xf "${dlPath}" -C "${destDir}"`);
+      rmSync(dlPath, { force: true });
       if (!existsSync(finalBinPath)) {
         const files = readdirSync(destDir);
         for (const f of files) {
           if (f.endsWith('.exe') && f !== `${repo}.exe`) {
-             execSync(`mv "${join(destDir, f)}" "${finalBinPath}"`);
+             renameSync(join(destDir, f), finalBinPath);
              break;
           }
         }
       }
     } else {
-      execSync(`mv "${dlPath}" "${finalBinPath}"`);
+      renameSync(dlPath, finalBinPath);
     }
 
     if (!IS_WINDOWS && existsSync(finalBinPath)) {
-      execSync(`chmod +x "${finalBinPath}"`);
+      chmodSync(finalBinPath, 0o755);
     }
     console.log(`Successfully downloaded ${repo} to ${finalBinPath}`);
   } catch (err: any) {
@@ -175,10 +198,13 @@ function getOrBuildRustService(repo: string, destDir: string) {
   }
 }
 
-function buildMicroservices() {
+/**
+ * Downloads or builds all relevant UI and Backend microservices.
+ */
+export function buildMicroservices(): void {
   console.log('Building and downloading cdd-* repositories...');
   const binDir = join(PARENT_DIR, 'bin');
-  if (!existsSync(binDir)) execSync(`mkdir -p "${binDir}"`);
+  if (!existsSync(binDir)) mkdirSync(binDir, { recursive: true });
 
   for (const repo of MICROSERVICES) {
     const isRustBinary = ['cdd-control-plane', 'cdd-engine', 'cdd-storage', 'cdd-gateway', 'cdd-publisher'].includes(repo);
@@ -199,26 +225,34 @@ function buildMicroservices() {
   }
 }
 
-function exportInfrastructure() {
+/**
+ * Generates external infrastructure packaging formats (docker, msi, deb).
+ */
+export function exportInfrastructure(): void {
+  const outDir = join(PARENT_DIR, "dist");
+  if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
+  const envOpts = { OUT_DIR: outDir };
   console.log('Exporting infrastructure formats...');
-  runSync(`"${LIBSCRIPT}" package_as docker`);
-  runSync(`"${LIBSCRIPT}" package_as docker-compose`);
-  runSync(`"${LIBSCRIPT}" package_as msi`);
-  runSync(`"${LIBSCRIPT}" package_as exe`);
-  runSync(`"${LIBSCRIPT}" package_as deb`);
+  runSync(`"${LIBSCRIPT}" package-as docker`, REPO_ROOT, false, envOpts);
+  runSync(`"${LIBSCRIPT}" package-as docker_compose`, REPO_ROOT, false, envOpts);
 }
 
-function main() {
+/**
+ * The main execution block. Validates requirements and executes the build script phases.
+ */
+export function main(): void {
   try {
     ensureDependencies();
     setupDatabases();
     buildMicroservices();
     exportInfrastructure();
     console.log('Deployment script completed successfully.');
-  } catch (error) {
+  } catch (_error) {
     console.error('Deployment failed:', error);
     process.exit(1);
   }
 }
 
-main();
+if (require.main === module) {
+  main();
+}
