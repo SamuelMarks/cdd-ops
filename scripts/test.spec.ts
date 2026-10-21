@@ -274,6 +274,33 @@ describe('scripts/lib/ports.ts & scripts/test.ts', () => {
     vi.mocked(fs.readFileSync).mockReturnValue('console.log("no headers pattern");');
     testScript.patchWebUiWasmScript('/path/build-wasm.mjs');
     expect(fs.writeFileSync).not.toHaveBeenCalled();
+
+    // patchWebUiWorkerScript: missing file
+    vi.clearAllMocks();
+    vi.mocked(fs.existsSync).mockReturnValue(false);
+    testScript.patchWebUiWorkerScript('/missing/wasm-worker.worker.ts');
+    expect(fs.writeFileSync).not.toHaveBeenCalled();
+
+    // patchWebUiWorkerScript: file contains obsolete @ts-expect-error directive
+    vi.clearAllMocks();
+    vi.mocked(fs.existsSync).mockReturnValue(true);
+    vi.mocked(fs.readFileSync).mockReturnValue(
+      '        additionalArgs,\n        // @ts-expect-error - expected by SDK fork but missing in types\n        cddJavaJsUrl: data.payload.cddJavaJsUrl,\n',
+    );
+    testScript.patchWebUiWorkerScript('/path/wasm-worker.worker.ts');
+    expect(fs.writeFileSync).toHaveBeenCalledWith(
+      '/path/wasm-worker.worker.ts',
+      '        additionalArgs,\n        cddJavaJsUrl: data.payload.cddJavaJsUrl,\n',
+    );
+
+    // patchWebUiWorkerScript: file already clean
+    vi.clearAllMocks();
+    vi.mocked(fs.existsSync).mockReturnValue(true);
+    vi.mocked(fs.readFileSync).mockReturnValue(
+      '        additionalArgs,\n        cddJavaJsUrl: data.payload.cddJavaJsUrl,\n',
+    );
+    testScript.patchWebUiWorkerScript('/path/wasm-worker.worker.ts');
+    expect(fs.writeFileSync).not.toHaveBeenCalled();
   });
 
   it('buildAndStartServices builds and spawns all 5 background services', () => {

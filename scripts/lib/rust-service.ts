@@ -40,31 +40,21 @@ export function resolveTargetTriplet(osPlatform: NodeJS.Platform, arch: string):
  * @param extractedDir - The directory where the archive was extracted.
  * @param files - List of filenames inside `extractedDir`.
  * @param archiveType - Whether the archive was `.tar.gz` or `.zip`.
- * @param repo - The microservice repository name.
  * @returns The filename of the discovered binary, or `undefined` if none matched.
  */
 export function findExtractedBinary(
   extractedDir: string,
   files: readonly string[],
   archiveType: 'tar.gz' | 'zip',
-  repo: string,
 ): string | undefined {
   for (const file of files) {
     const fullPath = join(extractedDir, file);
     if (archiveType === 'tar.gz') {
-      if (
-        !file.endsWith('.tar.gz') &&
-        !file.endsWith('.zip') &&
-        file !== repo &&
-        !lstatSync(fullPath).isDirectory()
-      ) {
+      if (!file.endsWith('.tar.gz') && !file.endsWith('.zip') && !lstatSync(fullPath).isDirectory()) {
         return file;
       }
     } else {
-      if (
-        file !== `${repo}.exe` &&
-        (file.endsWith('.exe') || (!file.includes('.') && !lstatSync(fullPath).isDirectory()))
-      ) {
+      if (file.endsWith('.exe') || (!file.includes('.') && !lstatSync(fullPath).isDirectory())) {
         return file;
       }
     }
@@ -125,7 +115,7 @@ export function getOrBuildRustService(
         rmSync(dlPath, { force: true });
         if (!existsSync(finalBinPath)) {
           const files = readdirSync(tempDir);
-          const matchedFile = findExtractedBinary(tempDir, files, archiveType, repo);
+          const matchedFile = findExtractedBinary(tempDir, files, archiveType);
           if (matchedFile !== undefined) {
             renameSync(join(tempDir, matchedFile), finalBinPath);
           }

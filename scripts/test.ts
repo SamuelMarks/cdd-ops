@@ -142,6 +142,25 @@ export function patchWebUiWasmScript(wasmScriptPath: string): void {
 }
 
 /**
+ * Idempotently patches `cdd-web-ui/src/app/services/wasm-worker.worker.ts` to remove obsolete
+ * `@ts-expect-error` directives that trigger `TS2578` when compiled against `cdd-browser-sdk`.
+ * @param workerScriptPath - Path to the `wasm-worker.worker.ts` file.
+ */
+export function patchWebUiWorkerScript(workerScriptPath: string): void {
+  if (!existsSync(workerScriptPath)) {
+    return;
+  }
+  const originalContent = readFileSync(workerScriptPath, 'utf8');
+  const patchedContent = originalContent.replace(
+    /^\s*\/\/\s*@ts-expect-error\s*-\s*expected by SDK fork but missing in types\r?\n/gm,
+    '',
+  );
+  if (patchedContent !== originalContent) {
+    writeFileSync(workerScriptPath, patchedContent);
+  }
+}
+
+/**
  * Builds or resolves all platform microservices and starts them in the background.
  * @param config - Optional runtime configuration override.
  * @returns Array of spawned background {@link ChildProcess} instances.
@@ -206,11 +225,13 @@ export function buildAndStartServices(config?: OpsConfig): ChildProcess[] {
   processes.push(runAsync('npm', ['run', 'serve'], docsUiPath, envConfig, cfg.isWindows));
 
   console.log('Patching cdd-web-ui to use GITHUB_TOKEN...');
-  const wasmScriptPath = join(cfg.parentDir, 'cdd-web-ui', 'scripts', 'build-wasm.mjs');
+  const webUiPath = join(cfg.parentDir, 'cdd-web-ui');
+  const wasmScriptPath = join(webUiPath, 'scripts', 'build-wasm.mjs');
+  const workerScriptPath = join(webUiPath, 'src', 'app', 'services', 'wasm-worker.worker.ts');
   patchWebUiWasmScript(wasmScriptPath);
+  patchWebUiWorkerScript(workerScriptPath);
 
   console.log('Starting cdd-web-ui...');
-  const webUiPath = join(cfg.parentDir, 'cdd-web-ui');
   runSync('npm install', webUiPath);
   runSync('npm run build', webUiPath);
   processes.push(
@@ -232,6 +253,7 @@ export function buildAndStartServices(config?: OpsConfig): ChildProcess[] {
       {
         ...envConfig,
         CDD__SERVER_BIND: '0.0.0.0:8086',
+        CDD__RATE_LIMIT_MAX_REQUESTS: '10000',
       },
       cfg.isWindows,
     ),

@@ -323,34 +323,20 @@ describe('scripts/deploy.ts', () => {
     });
 
     expect(
-      findExtractedBinary(
-        '/tmp/ext',
-        ['archive.tar.gz', 'archive.zip', 'my-repo', 'subdir', 'extracted-bin'],
-        'tar.gz',
-        'my-repo',
-      ),
-    ).toBe('extracted-bin');
+      findExtractedBinary('/tmp/ext', ['archive.tar.gz', 'archive.zip', 'subdir', 'my-repo'], 'tar.gz'),
+    ).toBe('my-repo');
+
+    expect(findExtractedBinary('/tmp/ext', ['archive.tar.gz', 'subdir'], 'tar.gz')).toBeUndefined();
 
     expect(
-      findExtractedBinary('/tmp/ext', ['archive.tar.gz', 'subdir'], 'tar.gz', 'my-repo'),
-    ).toBeUndefined();
+      findExtractedBinary('/tmp/ext', ['readme.txt', 'subdir', 'my-repo.exe'], 'zip'),
+    ).toBe('my-repo.exe');
 
-    expect(
-      findExtractedBinary(
-        '/tmp/ext',
-        ['readme.txt', 'my-repo.exe', 'subdir', 'extracted.exe'],
-        'zip',
-        'my-repo',
-      ),
-    ).toBe('extracted.exe');
+    expect(findExtractedBinary('/tmp/ext', ['readme.txt', 'subdir', 'unix_bin'], 'zip')).toBe(
+      'unix_bin',
+    );
 
-    expect(
-      findExtractedBinary('/tmp/ext', ['readme.txt', 'subdir', 'unix_bin'], 'zip', 'my-repo'),
-    ).toBe('unix_bin');
-
-    expect(
-      findExtractedBinary('/tmp/ext', ['readme.txt', 'subdir'], 'zip', 'my-repo'),
-    ).toBeUndefined();
+    expect(findExtractedBinary('/tmp/ext', ['readme.txt', 'subdir'], 'zip')).toBeUndefined();
   });
 
   it('getOrBuildRustService downloads tar.gz, zip, and plain binary across platforms', () => {
