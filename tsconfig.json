@@ -5,8 +5,16 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "useUnknownInCatchVariables": true,
+    "noEmit": true,
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["scripts/**/*"]
+  "include": ["scripts/**/*", "vitest.config.ts"]
 }

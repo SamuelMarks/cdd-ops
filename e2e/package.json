@@ -1,17 +1,20 @@
 {
   "name": "e2e",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "End-to-End (E2E) Playwright test suite for the CDD platform.",
   "directories": {
     "test": "tests"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "playwright test"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "cdd",
+    "e2e",
+    "playwright"
+  ],
+  "author": "Samuel Marks",
+  "license": "Apache-2.0 OR MIT",
   "type": "commonjs",
   "devDependencies": {
     "@axe-core/playwright": "^4.11.3",

@@ -1,217 +1,161 @@
-import { execSync } from 'node:child_process';
-import { platform } from 'node:os';
-import { resolve, join } from 'node:path';
-import { existsSync, readdirSync, lstatSync, mkdirSync, rmSync, renameSync, chmodSync } from 'node:fs';
+/**
+ * @file Deployment orchestration script for provisioning, building, and packaging the CDD platform.
+ * @module scripts/deploy
+ */
 
-// Constants
-export const LIBSCRIPT_SH = resolve(__dirname, '..', '..', 'libscript', 'libscript.sh');
-export const LIBSCRIPT_CMD = resolve(__dirname, '..', '..', 'libscript', 'libscript.cmd');
-export const IS_WINDOWS = platform() === 'win32';
-export const LIBSCRIPT = IS_WINDOWS ? LIBSCRIPT_CMD : LIBSCRIPT_SH;
-export const REPO_ROOT = resolve(__dirname, '..');
-export const PARENT_DIR = resolve(REPO_ROOT, '..');
+import { existsSync, lstatSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import {
+  IS_WINDOWS,
+  LIBSCRIPT,
+  LIBSCRIPT_CMD,
+  LIBSCRIPT_SH,
+  MICROSERVICES,
+  PARENT_DIR,
+  PG_HOST,
+  PG_PORT,
+  PG_USER,
+  REPO_ROOT,
+  RUST_MICROSERVICES,
+  VALKEY_HOST,
+  VALKEY_PORT,
+  resolveConfig,
+} from './lib/constants';
+import {
+  ensureDependencies as ensureDepsShared,
+  ensureWait4x as ensureWait4xShared,
+  setupDatabases as setupDatabasesShared,
+} from './lib/dependencies';
+import { hasCommand, runSync } from './lib/exec';
+import { getOrBuildRustService as getOrBuildRustServiceShared } from './lib/rust-service';
+import { formatError, isPackageFormat, OpsConfig, PackageFormat } from './lib/types';
 
-export const PG_HOST = process.env.POSTGRES_HOST || 'localhost';
-export const PG_PORT = process.env.POSTGRES_PORT || '5432';
-export const PG_USER = process.env.POSTGRES_USER || 'postgres';
-export const VALKEY_HOST = process.env.VALKEY_HOST || 'localhost';
-export const VALKEY_PORT = process.env.VALKEY_PORT || '6379';
-
-export const MICROSERVICES = [
-  'cdd-gateway',
-  'cdd-web-ui',
-  'cdd-control-plane',
-  'cdd-engine',
-  'cdd-storage',
-  'cdd-publisher',
-  'cdd-docs-ui',
-];
-
-// Ensure libscript uses mise to avoid fnm concurrency bugs
-process.env.NODEJS_INSTALL_METHOD = 'mise';
+export {
+  IS_WINDOWS,
+  LIBSCRIPT,
+  LIBSCRIPT_CMD,
+  LIBSCRIPT_SH,
+  MICROSERVICES,
+  PARENT_DIR,
+  PG_HOST,
+  PG_PORT,
+  PG_USER,
+  REPO_ROOT,
+  RUST_MICROSERVICES,
+  VALKEY_HOST,
+  VALKEY_PORT,
+  hasCommand,
+  runSync,
+};
 
 /**
- * Runs a shell command synchronously and pipes output to standard streams.
- * @param command - The command to run.
- * @param cwd - The working directory to execute in. Defaults to REPO_ROOT.
- * @param ignoreError - If true, avoids exiting the process on error.
+ * Default packaging formats generated when no `--target` CLI flags are provided.
  */
-export function runSync(command: string, cwd = REPO_ROOT, ignoreError = false, envVars: Record<string, string> = {}): void {
-  try {
-    console.log(`> ${command}`);
-    execSync(command, { cwd, stdio: 'inherit', env: { ...process.env, ...envVars } });
-  } catch (_error) {
-    if (!ignoreError) {
-      console.error(`Command failed: ${command}`);
-      process.exit(1);
+export const DEFAULT_PACKAGE_TARGETS: readonly PackageFormat[] = ['docker', 'docker_compose'];
+
+/**
+ * Parses CLI arguments passed to `deploy` to extract requested `--target` packaging formats.
+ * @param args - Array of raw CLI argument strings.
+ * @returns Array of validated {@link PackageFormat} targets (defaults to `['docker', 'docker_compose']`).
+ * @throws {Error} If `--target` is missing its argument or specifies an unsupported format.
+ */
+export function parseDeployArgs(args: readonly string[] = []): readonly PackageFormat[] {
+  const targets: PackageFormat[] = [];
+  let i = 0;
+  while (i < args.length) {
+    const arg = args[i];
+    if (arg === '--target') {
+      const nextArg = args[i + 1];
+      if (nextArg === undefined || nextArg.startsWith('-')) {
+        throw new Error('Missing value for --target flag.');
+      }
+      if (!isPackageFormat(nextArg)) {
+        throw new Error(`Unsupported package target format: ${nextArg}`);
+      }
+      targets.push(nextArg);
+      i += 2;
+      continue;
     }
+    if (arg !== undefined && arg.startsWith('--target=')) {
+      const val = arg.slice('--target='.length);
+      if (!isPackageFormat(val)) {
+        throw new Error(`Unsupported package target format: ${val}`);
+      }
+      targets.push(val);
+    }
+    i += 1;
   }
+  return targets.length > 0 ? targets : DEFAULT_PACKAGE_TARGETS;
 }
 
 /**
- * Checks whether a given CLI command is available on the host system.
- * @param command - The CLI command to check.
- * @returns True if the command is available in PATH, false otherwise.
+ * Ensures the `wait4x` utility is installed via `libscript`.
+ * @param config - Optional runtime configuration override.
  */
-export function hasCommand(command: string): boolean {
-  try {
-    const cmd = IS_WINDOWS ? `where ${command}` : `command -v ${command}`;
-    execSync(cmd, { stdio: 'ignore' });
-    return true;
-  } catch {
-    return false;
-  }
+export function ensureWait4x(config?: OpsConfig): void {
+  const cfg = config ?? resolveConfig();
+  ensureWait4xShared(cfg.libscript, cfg.isWindows);
 }
 
 /**
- * Ensures the `wait4x` utility is installed via libscript.
+ * Validates and provisions the required core dependencies (Rust, Node.js, PostgreSQL, Valkey).
+ * @param config - Optional runtime configuration override.
  */
-export function ensureWait4x(): void {
-  if (!hasCommand('wait4x')) {
-    console.log('Installing wait4x...');
-    runSync(`"${LIBSCRIPT}" wait4x install wait4x`);
-  }
-}
-
-/**
- * Validates and provisions the required core dependencies (Rust, Node, Postgres, Valkey).
- */
-export function ensureDependencies(): void {
-  console.log('Provisioning core dependencies...');
-  runSync(`"${LIBSCRIPT}" rust install rust`);
-  runSync(`"${LIBSCRIPT}" nodejs install nodejs`);
-
-  console.log('Checking if databases are installed...');
-  ensureWait4x();
-
-  try {
-    execSync(`"${LIBSCRIPT}" postgres test postgres`, { stdio: 'ignore' });
-    console.log('PostgreSQL is already installed.');
-  } catch {
-    runSync(`"${LIBSCRIPT}" postgres install postgres`);
-  }
-
-  let hasValkey = false;
-  let hasRedis = false;
-  try {
-    execSync(`"${LIBSCRIPT}" valkey test valkey`, { stdio: 'ignore' });
-    hasValkey = true;
-  } catch {}
-  try {
-    execSync(`"${LIBSCRIPT}" redis test redis`, { stdio: 'ignore' });
-    hasRedis = true;
-  } catch {}
-
-  if (hasValkey) {
-    console.log('Valkey is already installed.');
-  } else if (hasRedis) {
-    console.log('Redis is already installed.');
-  } else {
-    runSync(`"${LIBSCRIPT}" valkey install valkey`);
-  }
+export function ensureDependencies(config?: OpsConfig): void {
+  const cfg = config ?? resolveConfig();
+  ensureDepsShared({
+    skipInCi: false,
+    checkToolchainsFirst: false,
+    checkRunningDatabasesFirst: false,
+    config: cfg,
+  });
 }
 
 /**
  * Waits for databases to start and initializes the PostgreSQL database if absent.
+ * @param config - Optional runtime configuration override.
  */
-export function setupDatabases(): void {
-  console.log('Ensuring PostgreSQL is ready...');
-  runSync(`wait4x postgresql "postgres://${PG_USER}@${PG_HOST}:${PG_PORT}/postgres?sslmode=disable" -t 60s`);
-
-  console.log('Setting up Postgres Database...');
-  const createDbCmd = IS_WINDOWS
-    ? `psql -h ${PG_HOST} -U ${PG_USER} -tc "SELECT 1 FROM pg_database WHERE datname = 'cdd'" | findstr "1" >nul || psql -h ${PG_HOST} -U ${PG_USER} -c "CREATE DATABASE cdd"`
-    : `psql -h ${PG_HOST} -U ${PG_USER} -tc "SELECT 1 FROM pg_database WHERE datname = 'cdd'" | grep -q 1 || psql -h ${PG_HOST} -U ${PG_USER} -c "CREATE DATABASE cdd"`;
-  runSync(createDbCmd);
+export function setupDatabases(config?: OpsConfig): void {
+  const cfg = config ?? resolveConfig();
+  setupDatabasesShared({
+    waitForRedis: false,
+    runMigrations: false,
+    config: cfg,
+  });
 }
 
 /**
- * Attempts to download a prebuilt release for a rust microservice or builds from source via Cargo as a fallback.
- * @param repo - The GitHub repository name (e.g., 'cdd-gateway').
+ * Attempts to download a prebuilt release for a Rust microservice or builds from source via Cargo as a fallback.
+ * @param repo - The GitHub repository name (e.g., `'cdd-gateway'`).
  * @param destDir - The destination directory for the downloaded or built executable.
+ * @param config - Optional runtime configuration override.
  */
-export function getOrBuildRustService(repo: string, destDir: string): void {
-  console.log(`Resolving ${repo}...`);
-  const repoPath = join(PARENT_DIR, repo);
-  const finalBinPath = join(destDir, IS_WINDOWS ? `${repo}.exe` : repo);
-
-  try {
-    const releaseUrl = `https://api.github.com/repos/SamuelMarks/${repo}/releases/latest`;
-    const res = execSync(`curl -sL ${releaseUrl}`).toString();
-    const release = JSON.parse(res);
-
-    let target = 'x86_64-unknown-linux-gnu';
-    if (IS_WINDOWS) target = 'x86_64-pc-windows-msvc';
-    else if (platform() === 'darwin' && process.arch === 'arm64') target = 'aarch64-apple-darwin';
-    else if (platform() === 'darwin' && process.arch === 'x64') target = 'x86_64-apple-darwin';
-
-    const asset = release.assets?.find((a: any) => a.name.includes(target));
-
-    if (!asset) {
-      throw new Error(`Asset for triplet ${target} not found (404).`);
-    }
-
-    const downloadUrl = asset.browser_download_url;
-    const dlPath = join(destDir, asset.name);
-    console.log(`Downloading ${downloadUrl} to ${dlPath}...`);
-    execSync(`curl -sL -o "${dlPath}" "${downloadUrl}"`);
-
-    if (asset.name.endsWith('.tar.gz')) {
-      execSync(`tar -xf "${dlPath}" -C "${destDir}"`);
-      rmSync(dlPath, { force: true });
-      if (!existsSync(finalBinPath)) {
-        const files = readdirSync(destDir);
-        for (const f of files) {
-          if (!f.endsWith('.tar.gz') && !f.endsWith('.zip') && f !== repo && !lstatSync(join(destDir, f)).isDirectory()) {
-             renameSync(join(destDir, f), finalBinPath);
-             break;
-          }
-        }
-      }
-    } else if (asset.name.endsWith('.zip')) {
-      execSync(`tar -xf "${dlPath}" -C "${destDir}"`);
-      rmSync(dlPath, { force: true });
-      if (!existsSync(finalBinPath)) {
-        const files = readdirSync(destDir);
-        for (const f of files) {
-          if (f.endsWith('.exe') && f !== `${repo}.exe`) {
-             renameSync(join(destDir, f), finalBinPath);
-             break;
-          }
-        }
-      }
-    } else {
-      renameSync(dlPath, finalBinPath);
-    }
-
-    if (!IS_WINDOWS && existsSync(finalBinPath)) {
-      chmodSync(finalBinPath, 0o755);
-    }
-    console.log(`Successfully downloaded ${repo} to ${finalBinPath}`);
-  } catch (err: any) {
-    console.warn(`Failed to fetch release for ${repo} (${err.message}). Falling back to cargo build...`);
-    if (existsSync(repoPath)) {
-      runSync('cargo build', repoPath);
-    } else {
-      console.warn(`Source directory ${repoPath} not found. Skipping build.`);
-    }
-  }
+export function getOrBuildRustService(repo: string, destDir: string, config?: OpsConfig): void {
+  const cfg = config ?? resolveConfig();
+  getOrBuildRustServiceShared(repo, destDir, {
+    fallbackMode: 'skip-if-missing',
+    config: cfg,
+  });
 }
 
 /**
- * Downloads or builds all relevant UI and Backend microservices.
+ * Downloads or builds all relevant UI and backend microservices.
+ * @param config - Optional runtime configuration override.
  */
-export function buildMicroservices(): void {
+export function buildMicroservices(config?: OpsConfig): void {
+  const cfg = config ?? resolveConfig();
   console.log('Building and downloading cdd-* repositories...');
-  const binDir = join(PARENT_DIR, 'bin');
-  if (!existsSync(binDir)) mkdirSync(binDir, { recursive: true });
+  const binDir = join(cfg.parentDir, 'bin');
+  if (!existsSync(binDir)) {
+    mkdirSync(binDir, { recursive: true });
+  }
 
   for (const repo of MICROSERVICES) {
-    const isRustBinary = ['cdd-control-plane', 'cdd-engine', 'cdd-storage', 'cdd-gateway', 'cdd-publisher'].includes(repo);
+    const isRustBinary = RUST_MICROSERVICES.includes(repo);
     if (isRustBinary) {
-      getOrBuildRustService(repo, binDir);
+      getOrBuildRustService(repo, binDir, cfg);
     } else {
-      const repoPath = join(PARENT_DIR, repo);
+      const repoPath = join(cfg.parentDir, repo);
       if (existsSync(repoPath) && lstatSync(repoPath).isDirectory()) {
         console.log(`Building UI/Docs ${repo}...`);
         if (existsSync(join(repoPath, 'package.json'))) {
@@ -226,33 +170,61 @@ export function buildMicroservices(): void {
 }
 
 /**
- * Generates external infrastructure packaging formats (docker, msi, deb).
+ * Generates external infrastructure packaging formats (`docker`, `docker_compose`, `.deb`, `.msi`, etc.).
+ * @param config - Optional runtime configuration override.
+ * @param targets - Optional list of packaging formats to export (defaults to `['docker', 'docker_compose']`).
  */
-export function exportInfrastructure(): void {
-  const outDir = join(PARENT_DIR, "dist");
-  if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
+export function exportInfrastructure(
+  config?: OpsConfig,
+  targets: readonly PackageFormat[] = DEFAULT_PACKAGE_TARGETS,
+): void {
+  const cfg = config ?? resolveConfig();
+  const outDir = join(cfg.parentDir, 'dist');
+  if (!existsSync(outDir)) {
+    mkdirSync(outDir, { recursive: true });
+  }
   const envOpts = { OUT_DIR: outDir };
+  const manifestPath = join(cfg.repoRoot, 'libscript.json');
   console.log('Exporting infrastructure formats...');
-  runSync(`"${LIBSCRIPT}" package-as docker`, REPO_ROOT, false, envOpts);
-  runSync(`"${LIBSCRIPT}" package-as docker_compose`, REPO_ROOT, false, envOpts);
+  for (const target of targets) {
+    if (target === 'docker') {
+      const dockerfileOut = join(outDir, 'Dockerfile');
+      runSync(`"${cfg.libscript}" package-as docker --output "${dockerfileOut}"`, cfg.repoRoot, false, envOpts);
+    } else if (target === 'docker_compose') {
+      runSync(`"${cfg.libscript}" package-as docker_compose "${manifestPath}"`, cfg.repoRoot, false, envOpts);
+    } else {
+      runSync(`"${cfg.libscript}" package-as ${target} --service-name cdd`, cfg.repoRoot, false, envOpts);
+    }
+  }
 }
 
 /**
- * The main execution block. Validates requirements and executes the build script phases.
+ * Executes the full deployment workflow: dependencies, databases, microservices, and packaging.
+ * @param config - Optional runtime configuration override.
+ * @param args - Optional CLI arguments array (defaults to `process.argv.slice(2)`).
  */
-export function main(): void {
+export function main(config?: OpsConfig, args: readonly string[] = process.argv.slice(2)): void {
   try {
-    ensureDependencies();
-    setupDatabases();
-    buildMicroservices();
-    exportInfrastructure();
+    const targets = parseDeployArgs(args);
+    ensureDependencies(config);
+    setupDatabases(config);
+    buildMicroservices(config);
+    exportInfrastructure(config, targets);
     console.log('Deployment script completed successfully.');
-  } catch (_error) {
-    console.error('Deployment failed:', error);
+  } catch (error: unknown) {
+    console.error('Deployment failed:', formatError(error));
     process.exit(1);
   }
 }
 
-if (require.main === module) {
-  main();
+/**
+ * Runs {@link main} when invoked directly as the Node.js entrypoint module.
+ * @param isMain - Whether the current module is the main entrypoint.
+ */
+export function runIfMain(isMain: boolean = require.main === module): void {
+  if (isMain) {
+    main();
+  }
 }
+
+runIfMain();

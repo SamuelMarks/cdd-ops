@@ -4,8 +4,6 @@
 # microservices (gateway, web-ui, control-plane, engine, and storage)
 # in a containerized environment.
 
-version: "3.8"
-
 services:
   gateway:
     image: nginx:alpine

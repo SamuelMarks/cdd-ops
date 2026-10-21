@@ -59,8 +59,8 @@ flowchart TD
     end
 
     subgraph Phase4 ["4. Production Release (libscript)"]
-        D1[rsync run:<br/>Sync Artifacts]
-        D2[ssh run:<br/>Restart Services]
+        D1[deploy-remote:<br/>Sync & Provision Host]
+        D2[daemonize / up:<br/>Manage Services & Health]
         D1 --> D2
     end
 
@@ -72,18 +72,19 @@ flowchart TD
 ## Automated Scripts
 
 Two scripts are provided in the repository root for streamlined setup:
-- **POSIX (Linux/macOS):** `deploy_with_libscript.sh`
+- **POSIX (Linux/macOS/FreeBSD):** `deploy_with_libscript.sh`
 - **Windows (Command Prompt):** `deploy_with_libscript.cmd`
 
 ## What the Scripts Do
 
 1. **Install Dependencies:**
-   Utilizing the decentralized `libscript` architecture, the scripts automatically install the necessary core dependencies:
-   - Rust (`libscript rust install rust`)
-   - Node.js (`libscript nodejs install nodejs`)
-   - Nginx (`libscript nginx install nginx`)
-   - Postgres (`libscript postgres install postgres`)
-   - Valkey (`libscript valkey install valkey`)
+   Utilizing the unified action-first `libscript` CLI and `libscript.json`, the scripts automatically install the necessary core dependencies:
+   - Rust (`libscript install rust latest`)
+   - Node.js (`libscript install nodejs latest`)
+   - Nginx (`libscript install nginx latest`)
+   - Postgres (`libscript install postgres latest`)
+   - Valkey (`libscript install valkey latest`)
+   - Declarative stack dependencies (`libscript install-deps libscript.json`)
 
 2. **Clone Microservices:**
    Just like the GitHub Actions CI workflow, the scripts navigate to the parent directory to clone the necessary CDD repositories alongside `cdd-ops`. This includes:
@@ -97,7 +98,7 @@ Two scripts are provided in the repository root for streamlined setup:
    - `cdd-publisher`
 
 3. **Build the Projects:**
-   Finally, the scripts change back into `cdd-ops` to install NPM dependencies and execute the full build/test suite using the native `npm install` and `npm run test` sequence exactly as orchestrated in the `ci.yml`.
+   Finally, the scripts change back into `cdd-ops` to install NPM dependencies and execute the full build/test suite using the native `npm install` and `npm run test` sequence exactly as orchestrated in `ci.yml`.
 
 ## Execution
 
@@ -107,7 +108,7 @@ To begin deployment, execute the script corresponding to your operating system f
 
 Make sure the script is executable, then run it:
 
-```bash
+```sh
 chmod +x deploy_with_libscript.sh
 ./deploy_with_libscript.sh
 ```
@@ -120,28 +121,35 @@ Run the batch script via Command Prompt:
 .\deploy_with_libscript.cmd
 ```
 
-## Remote Deployment via SSH & Rsync
+## Remote Deployment via `deploy-remote` & Service Lifecycle Management
 
-Because `libscript` serves as a universal orchestrator, it features built-in wrappers for `ssh` and `rsync`. This allows for seamless cross-platform remote deployments, even on systems where these native tools might be absent (such as Windows environments). There is no need to install these components separately as they are natively included.
+`libscript` features a built-in remote deployment orchestrator (`deploy-remote`, backed by `_lib/cloud/core/deploy_remote.sh`) and an init-system supervisor abstraction (`_lib/init-systems/daemonize.sh` / `daemonize.cmd`), plus native `openssh` component provisioning (`libscript install openssh latest`).
 
-### 1. Syncing Artifacts to Production
+### 1. Idempotent Remote Sync & Provisioning (`deploy-remote`)
 
-Once the local build process completes, you can use the built-in `rsync` wrapper to push your compiled microservices or static UI assets to a remote server.
+Once the local build completes, use `libscript deploy-remote` to synchronize local repositories to a target host over SSH, automatically run `install-deps` and `up` for each application containing a `libscript.json`, and configure the reverse proxy:
 
-For example, to securely sync the output directory to your production environment:
-
-```bash
-libscript rsync run -avz --delete ../bin/ deploy@production-server.local:/opt/cdd/bin/
+```sh
+../libscript/libscript.sh deploy-remote deploy@production-server.local
+  --sync-dirs="cdd-ops"
+  --apps="cdd-ops"
+  --health-apps="cdd-ops"
 ```
 
-### 2. Remote Command Execution
+### 2. Service Lifecycle & Health Management
 
-You can orchestrate remote lifecycle events without leaving the `libscript` ecosystem by utilizing the `ssh` component.
+Both locally and on remote hosts, `libscript` manages the lifecycle of all services declared in `libscript.json` across native init systems (`systemd`, `openrc`, `runit`, `s6`, `dinit`, `launchd`, FreeBSD `rc.d`, Illumos `smf`, and Windows Services):
 
-After syncing your updated binaries, you might need to restart the services or execute a remote orchestration command. You can do this securely:
+```sh
+# Start all CDD services and run pre_start/post_start hooks
+../libscript/libscript.sh up libscript.json
 
-```bash
-libscript ssh run deploy@production-server.local "sudo systemctl restart cdd-gateway cdd-storage"
+# Check service status
+../libscript/libscript.sh status libscript.json
+
+# Restart or stop the stack
+../libscript/libscript.sh restart libscript.json
+../libscript/libscript.sh down libscript.json
 ```
 
-Combining these components allows you to script an end-to-end continuous deployment pipeline natively across any operating system.
+Combining `libscript.json`, `packaging.json`, and `deploy-remote` allows you to script an end-to-end continuous deployment pipeline natively across any operating system.

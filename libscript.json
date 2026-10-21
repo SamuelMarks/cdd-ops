@@ -1,0 +1,135 @@
+{
+  "name": "cdd",
+  "version": "0.0.1",
+  "description": "Compiler Driven Development (CDD) Platform Stack",
+  "deps": {
+    "rust": "latest",
+    "nodejs": "latest",
+    "postgres": "latest",
+    "valkey": "latest",
+    "nginx": "latest",
+    "wait4x": "latest"
+  },
+  "install": {
+    "dependencies": {
+      "required": {
+        "toolchains": [
+          { "name": "rust", "version": "latest" },
+          { "name": "nodejs", "version": "latest" },
+          { "name": "wait4x", "version": "latest" }
+        ],
+        "databases": [
+          { "name": "postgres", "version": "latest", "ports": [5432] },
+          { "name": "valkey", "version": "latest", "ports": [6379] }
+        ],
+        "servers": [
+          { "name": "nginx", "version": "latest", "ports": [8080] }
+        ]
+      }
+    }
+  },
+  "dependencies": {
+    "required": {
+      "toolchains": [
+        { "name": "rust", "version": "latest" },
+        { "name": "nodejs", "version": "latest" },
+        { "name": "wait4x", "version": "latest" }
+      ],
+      "databases": [
+        { "name": "postgres", "version": "latest", "ports": [5432] },
+        { "name": "valkey", "version": "latest", "ports": [6379] }
+      ],
+      "servers": [
+        { "name": "nginx", "version": "latest", "ports": [8080] }
+      ]
+    }
+  },
+  "vars": {
+    "POSTGRES_PORT": 5432,
+    "POSTGRES_USER": "postgres",
+    "POSTGRES_DB": "cdd",
+    "VALKEY_PORT": 6379,
+    "CADDY_PORT_HTTP": 8080,
+    "NGINX_PORT": 8080
+  },
+  "hooks": {
+    "build": [
+      {
+        "name": "install-ops-deps",
+        "command": "npm install"
+      },
+      {
+        "name": "build-microservices",
+        "command": "npm run deploy"
+      }
+    ],
+    "pre_start": [
+      {
+        "name": "wait-postgres",
+        "command": "wait4x postgresql \"postgres://postgres@localhost:5432/postgres?sslmode=disable\" -t 60s"
+      },
+      {
+        "name": "wait-valkey",
+        "command": "wait4x redis \"redis://localhost:6379\" -t 60s"
+      },
+      {
+        "name": "ensure-cdd-database",
+        "command": "psql -h localhost -U postgres -tc \"SELECT 1 FROM pg_database WHERE datname = 'cdd'\" | grep -q 1 || psql -h localhost -U postgres -c \"CREATE DATABASE cdd\""
+      }
+    ],
+    "post_start": [
+      {
+        "name": "verify-gateway-health",
+        "command": "wait4x http \"http://localhost:8086/health\" -t 60s"
+      }
+    ]
+  },
+  "services": [
+    {
+      "name": "cdd-control-plane",
+      "command": "../bin/cdd-control-plane",
+      "cwd": ".",
+      "env": {
+        "CDD__DATABASE_URL": "postgres://postgres@localhost:5432/cdd",
+        "CDD__REDIS_URL": "redis://localhost:6379",
+        "CDD__SERVER_BIND": "0.0.0.0:8081"
+      }
+    },
+    {
+      "name": "cdd-storage",
+      "command": "../bin/cdd-storage",
+      "cwd": ".",
+      "env": {
+        "CDD__DATABASE_URL": "postgres://postgres@localhost:5432/cdd",
+        "CDD__REDIS_URL": "redis://localhost:6379",
+        "PORT": "8085"
+      }
+    },
+    {
+      "name": "cdd-docs-ui",
+      "command": "npm run serve",
+      "cwd": "../cdd-docs-ui",
+      "env": {
+        "PORT": "8082"
+      }
+    },
+    {
+      "name": "cdd-web-ui",
+      "command": "npx --yes serve -s dist/cdd-web-ui/browser -l 8083",
+      "cwd": "../cdd-web-ui",
+      "env": {
+        "PORT": "8083"
+      }
+    },
+    {
+      "name": "cdd-gateway",
+      "command": "../bin/cdd-gateway",
+      "cwd": ".",
+      "env": {
+        "CDD__DATABASE_URL": "postgres://postgres@localhost:5432/cdd",
+        "CDD__REDIS_URL": "redis://localhost:6379",
+        "CDD__SERVER_BIND": "0.0.0.0:8086"
+      }
+    }
+  ]
+}

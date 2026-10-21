@@ -1,435 +1,350 @@
-import { execSync, spawn, ChildProcess } from 'node:child_process';
-import { platform } from 'node:os';
-import { resolve, join } from 'node:path';
-import { existsSync, readdirSync, lstatSync, readFileSync, writeFileSync, mkdirSync, rmSync, renameSync, chmodSync } from 'node:fs';
+/**
+ * @file End-to-End (E2E) test runner orchestration script for the CDD platform.
+ * @module scripts/test
+ */
 
-// Constants
-export const LIBSCRIPT_SH = resolve(__dirname, '..', '..', 'libscript', 'libscript.sh');
-export const LIBSCRIPT_CMD = resolve(__dirname, '..', '..', 'libscript', 'libscript.cmd');
-export const IS_WINDOWS = platform() === 'win32';
-export const LIBSCRIPT = IS_WINDOWS ? LIBSCRIPT_CMD : LIBSCRIPT_SH;
-export const REPO_ROOT = resolve(__dirname, '..');
-export const PARENT_DIR = resolve(REPO_ROOT, '..');
+import { execSync, ChildProcess } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import {
+  DATABASE_URL,
+  IS_WINDOWS,
+  LIBSCRIPT,
+  LIBSCRIPT_CMD,
+  LIBSCRIPT_SH,
+  PARENT_DIR,
+  PG_HOST,
+  PG_PORT,
+  PG_USER,
+  PORTS,
+  REDIS_URL,
+  REPO_ROOT,
+  VALKEY_HOST,
+  VALKEY_PORT,
+  resolveConfig,
+} from './lib/constants';
+import {
+  ensureDependencies as ensureDepsShared,
+  ensureWait4x as ensureWait4xShared,
+  setupDatabases as setupDatabasesShared,
+} from './lib/dependencies';
+import { hasCommand, runAsync, runSync } from './lib/exec';
+import { killPorts as killPortsShared } from './lib/ports';
+import { getOrBuildRustService as getOrBuildRustServiceShared } from './lib/rust-service';
+import { formatError, OpsConfig, RustServiceCommand } from './lib/types';
 
-export const PG_HOST = process.env.POSTGRES_HOST || 'localhost';
-export const PG_PORT = process.env.POSTGRES_PORT || '5432';
-export const PG_USER = process.env.POSTGRES_USER || 'postgres';
-export const VALKEY_HOST = process.env.VALKEY_HOST || 'localhost';
-export const VALKEY_PORT = process.env.VALKEY_PORT || '6379';
-
-export const DATABASE_URL = `postgres://${PG_USER}@${PG_HOST}:${PG_PORT}/cdd`;
-export const REDIS_URL = `redis://${VALKEY_HOST}:${VALKEY_PORT}`;
-
-export const PORTS = [8081, 8082, 8083, 8084, 8085, 8086];
-
-// Ensure libscript uses mise to avoid fnm concurrency bugs
-process.env.NODEJS_INSTALL_METHOD = 'mise';
+export {
+  DATABASE_URL,
+  IS_WINDOWS,
+  LIBSCRIPT,
+  LIBSCRIPT_CMD,
+  LIBSCRIPT_SH,
+  PARENT_DIR,
+  PG_HOST,
+  PG_PORT,
+  PG_USER,
+  PORTS,
+  REDIS_URL,
+  REPO_ROOT,
+  VALKEY_HOST,
+  VALKEY_PORT,
+  hasCommand,
+  runAsync,
+  runSync,
+};
 
 /**
- * Runs a command synchronously.
- * @param command - Command string.
- * @param cwd - Working directory.
- * @param ignoreError - Whether to ignore errors.
- * @param envVars - Extra environment variables.
+ * Terminates any processes listening on the CDD platform service ports.
+ * @param config - Optional runtime configuration override.
  */
-export function runSync(command: string, cwd = REPO_ROOT, ignoreError = false, envVars: Record<string, string> = {}): void {
-  try {
-    console.log(`> ${command}`);
-    execSync(command, { cwd, stdio: 'inherit', env: { ...process.env, ...envVars } });
-  } catch (_error) {
-    if (!ignoreError) {
-      console.error(`Command failed: ${command}`);
-      process.exit(1);
-    }
-  }
+export function killPorts(config?: OpsConfig): void {
+  const cfg = config ?? resolveConfig();
+  killPortsShared(PORTS, cfg.isWindows);
 }
 
 /**
- * Runs a command asynchronously.
- * @param command - Command string.
- * @param args - Command arguments.
- * @param cwd - Working directory.
- * @param envVars - Extra environment variables.
- * @returns ChildProcess instance.
+ * Ensures the `wait4x` utility is installed via `libscript`.
+ * @param config - Optional runtime configuration override.
  */
-export function runAsync(command: string, args: string[], cwd = REPO_ROOT, envVars: Record<string, string> = {}): ChildProcess {
-  console.log(`> [Background] ${command} ${args.join(' ')}`);
-  const child = spawn(command, args, {
-    cwd,
-    stdio: 'inherit',
-    env: { ...process.env, ...envVars },
-    shell: IS_WINDOWS ? true : undefined,
+export function ensureWait4x(config?: OpsConfig): void {
+  const cfg = config ?? resolveConfig();
+  ensureWait4xShared(cfg.libscript, cfg.isWindows);
+}
+
+/**
+ * Ensures all core dependencies (Rust, Node.js, PostgreSQL, Valkey/Redis) are installed or running.
+ * @param config - Optional runtime configuration override.
+ */
+export function ensureDependencies(config?: OpsConfig): void {
+  const cfg = config ?? resolveConfig();
+  ensureDepsShared({
+    skipInCi: true,
+    checkToolchainsFirst: true,
+    checkRunningDatabasesFirst: true,
+    config: cfg,
   });
+}
 
-  child.on('error', (err) => {
-    console.error(`Failed to start process ${command}:`, err);
+/**
+ * Waits for PostgreSQL and Valkey/Redis, creates the `cdd` database, and runs Diesel migrations.
+ * @param config - Optional runtime configuration override.
+ */
+export function setupDatabases(config?: OpsConfig): void {
+  const cfg = config ?? resolveConfig();
+  setupDatabasesShared({
+    waitForRedis: true,
+    runMigrations: true,
+    config: cfg,
   });
-
-  return child;
 }
 
 /**
- * Checks if a CLI command exists.
- * @param command - Command name.
- * @returns boolean
+ * Downloads a prebuilt release for a Rust microservice or builds from source via Cargo as a fallback.
+ * @param repo - Repository name (e.g., `'cdd-gateway'`).
+ * @param destDir - Destination directory for the binary.
+ * @param cargoEnv - Environment variables passed to Cargo when building from source.
+ * @param config - Optional runtime configuration override.
+ * @returns A {@link RustServiceCommand} describing how to launch the service.
  */
-export function hasCommand(command: string): boolean {
-  try {
-    const cmd = IS_WINDOWS ? `where ${command}` : `command -v ${command}`;
-    execSync(cmd, { stdio: 'ignore' });
-    return true;
-  } catch {
-    return false;
+export function getOrBuildRustService(
+  repo: string,
+  destDir: string,
+  cargoEnv: Record<string, string>,
+  config?: OpsConfig,
+): RustServiceCommand {
+  const cfg = config ?? resolveConfig();
+  return getOrBuildRustServiceShared(repo, destDir, {
+    cargoEnv,
+    fallbackMode: 'exit-if-missing',
+    config: cfg,
+  });
+}
+
+/**
+ * Idempotently patches `cdd-web-ui/scripts/build-wasm.mjs` to forward `GITHUB_TOKEN` when present.
+ * @param wasmScriptPath - Path to the `build-wasm.mjs` script.
+ */
+export function patchWebUiWasmScript(wasmScriptPath: string): void {
+  if (!existsSync(wasmScriptPath)) {
+    return;
+  }
+  const originalContent = readFileSync(wasmScriptPath, 'utf8');
+  if (originalContent.includes('process.env.GITHUB_TOKEN')) {
+    return;
+  }
+  const patchedContent = originalContent.replace(
+    /\{ headers: \{ 'User-Agent': 'node\.js' \} \}/g,
+    "{ headers: { 'User-Agent': 'node.js', ...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}) } }",
+  );
+  if (patchedContent !== originalContent) {
+    writeFileSync(wasmScriptPath, patchedContent);
   }
 }
 
 /**
- * Kills processes listening on specific ports.
+ * Builds or resolves all platform microservices and starts them in the background.
+ * @param config - Optional runtime configuration override.
+ * @returns Array of spawned background {@link ChildProcess} instances.
  */
-export function killPorts(): void {
-  console.log('Cleaning up lingering ports...');
-  for (const port of PORTS) {
-    try {
-      if (IS_WINDOWS) {
-        const output = execSync(`netstat -ano | findstr :${port}`).toString();
-        const lines = output.trim().split('\n');
-        for (const line of lines) {
-          const parts = line.trim().split(/\s+/);
-          if (parts.length > 4 && parts[1].includes(`:${port}`)) {
-            const pid = parts[parts.length - 1];
-            if (pid !== '0') {
-               console.log(`Killing process on port ${port} (PID: ${pid})`);
-               execSync(`taskkill /F /PID ${pid}`, { stdio: 'ignore' });
-            }
-          }
-        }
-      } else {
-        const pids = execSync(`lsof -Pi :${port} -sTCP:LISTEN -t`, { stdio: 'pipe' }).toString().trim();
-        if (pids) {
-          console.log(`Killing process on port ${port} (PIDs: ${pids})`);
-          execSync(`kill -9 ${pids.split('\n').join(' ')}`, { stdio: 'ignore' });
-        }
-      }
-    } catch {
-      // Port might not be in use, ignore
-    }
-  }
-}
-
-/**
- * Ensures wait4x is installed.
- */
-export function ensureWait4x(): void {
-  if (!hasCommand('wait4x')) {
-    console.log('Installing wait4x...');
-    runSync(`"${LIBSCRIPT}" wait4x install wait4x`);
-  }
-}
-
-/**
- * Ensures all core dependencies are installed.
- */
-export function ensureDependencies(): void {
-  if (!process.env.GITHUB_ACTIONS) {
-    ensureWait4x();
-
-    console.log('Checking if rust is installed...');
-    try {
-      execSync(`"${LIBSCRIPT}" rust test rust`, { stdio: 'ignore' });
-      console.log('Rust is already installed.');
-    } catch {
-      runSync(`"${LIBSCRIPT}" rust install rust`);
-    }
-
-    console.log('Checking if nodejs is installed...');
-    try {
-      execSync(`"${LIBSCRIPT}" nodejs test nodejs`, { stdio: 'ignore' });
-      console.log('Node.js is already installed.');
-    } catch {
-      runSync(`"${LIBSCRIPT}" nodejs install nodejs`);
-    }
-
-    console.log('Checking if databases are running or installed...');
-    try {
-      execSync(`wait4x tcp "${PG_HOST}:${PG_PORT}" -t 1s`, { stdio: 'ignore' });
-      console.log(`PostgreSQL is already running on ${PG_HOST}:${PG_PORT}.`);
-    } catch {
-       try {
-         execSync(`"${LIBSCRIPT}" postgres test postgres`, { stdio: 'ignore' });
-         console.log('PostgreSQL is already installed.');
-       } catch {
-         runSync(`"${LIBSCRIPT}" postgres install postgres`);
-       }
-    }
-
-    try {
-      execSync(`wait4x tcp "${VALKEY_HOST}:${VALKEY_PORT}" -t 1s`, { stdio: 'ignore' });
-      console.log(`Redis/Valkey is already running on ${VALKEY_HOST}:${VALKEY_PORT}.`);
-    } catch {
-      let hasRedis = false;
-      let hasValkey = false;
-      try { execSync(`"${LIBSCRIPT}" redis test redis`, { stdio: 'ignore' }); hasRedis = true; } catch {}
-      try { execSync(`"${LIBSCRIPT}" valkey test valkey`, { stdio: 'ignore' }); hasValkey = true; } catch {}
-
-      if (hasRedis || hasValkey) {
-        console.log('Redis/Valkey is already installed.');
-      } else {
-        runSync(`"${LIBSCRIPT}" valkey install valkey`);
-      }
-    }
-  }
-}
-
-/**
- * Sets up and migrates the PostgreSQL database.
- */
-export function setupDatabases(): void {
-  console.log('Ensuring PostgreSQL is ready...');
-  runSync(`wait4x postgresql "postgres://${PG_USER}@${PG_HOST}:${PG_PORT}/postgres?sslmode=disable" -t 60s`);
-
-  console.log('Ensuring Redis/Valkey is ready...');
-  runSync(`wait4x redis "redis://${VALKEY_HOST}:${VALKEY_PORT}" -t 60s`);
-
-  console.log('Setting up Postgres Database for local tests...');
-  const createDbCmd = IS_WINDOWS
-    ? `psql -h ${PG_HOST} -U ${PG_USER} -tc "SELECT 1 FROM pg_database WHERE datname = 'cdd'" | findstr "1" >nul || psql -h ${PG_HOST} -U ${PG_USER} -c "CREATE DATABASE cdd"`
-    : `psql -h ${PG_HOST} -U ${PG_USER} -tc "SELECT 1 FROM pg_database WHERE datname = 'cdd'" | grep -q 1 || psql -h ${PG_HOST} -U ${PG_USER} -c "CREATE DATABASE cdd"`;
-  runSync(createDbCmd);
-
-  console.log('Ensuring diesel_cli is installed...');
-  if (!hasCommand('diesel')) {
-      runSync('cargo install diesel_cli --no-default-features --features postgres');
-  }
-
-  console.log('Running Diesel Migrations via diesel cli...');
-  runSync('diesel migration run', join(PARENT_DIR, 'cdd-control-plane'), false, { DATABASE_URL });
-}
-
-/**
- * Downloads a prebuilt release for a rust microservice or builds from source via Cargo as a fallback.
- * @param repo - Repository name.
- * @param destDir - Destination directory.
- * @param cargoEnv - Environment variables for cargo.
- * @returns Object with command details.
- */
-export function getOrBuildRustService(repo: string, destDir: string, cargoEnv: Record<string, string>): { cmd: string, args: string[], cwd: string } {
-  console.log(`Resolving ${repo}...`);
-  const repoPath = join(PARENT_DIR, repo);
-  const finalBinPath = join(destDir, IS_WINDOWS ? `${repo}.exe` : repo);
-
-  try {
-    const releaseUrl = `https://api.github.com/repos/SamuelMarks/${repo}/releases/latest`;
-    const curlOpts = process.env.GITHUB_TOKEN ? `-H "Authorization: token ${process.env.GITHUB_TOKEN}"` : '';
-    const res = execSync(`curl -sL ${curlOpts} ${releaseUrl}`).toString();
-    const release = JSON.parse(res);
-
-    let target = 'x86_64-unknown-linux-gnu';
-    if (IS_WINDOWS) target = 'x86_64-pc-windows-msvc';
-    else if (platform() === 'darwin' && process.arch === 'arm64') target = 'aarch64-apple-darwin';
-    else if (platform() === 'darwin' && process.arch === 'x64') target = 'x86_64-apple-darwin';
-
-    const asset = release.assets?.find((a: any) => a.name.includes(target));
-
-    if (!asset) {
-      throw new Error(`Asset for triplet ${target} not found (404).`);
-    }
-
-    const downloadUrl = asset.browser_download_url;
-    const dlPath = join(destDir, asset.name);
-    console.log(`Downloading ${downloadUrl} to ${dlPath}...`);
-    execSync(`curl -sL -o "${dlPath}" "${downloadUrl}"`);
-
-    if (asset.name.endsWith('.tar.gz')) {
-      const tempDir = join(destDir, `temp-${repo}`);
-      mkdirSync(tempDir, { recursive: true });
-      execSync(`tar -xf "${dlPath}" -C "${tempDir}"`);
-      rmSync(dlPath, { force: true });
-      if (!existsSync(finalBinPath)) {
-        const files = readdirSync(tempDir);
-        for (const f of files) {
-          if (!f.endsWith('.tar.gz') && !f.endsWith('.zip') && !lstatSync(join(tempDir, f)).isDirectory()) {
-             renameSync(join(tempDir, f), finalBinPath);
-             break;
-          }
-        }
-      }
-      rmSync(tempDir, { recursive: true, force: true });
-    } else if (asset.name.endsWith('.zip')) {
-      const tempDir = join(destDir, `temp-${repo}`);
-      mkdirSync(tempDir, { recursive: true });
-      execSync(`tar -xf "${dlPath}" -C "${tempDir}"`);
-      rmSync(dlPath, { force: true });
-      if (!existsSync(finalBinPath)) {
-        const files = readdirSync(tempDir);
-        for (const f of files) {
-          if (f.endsWith('.exe') || (!f.includes('.') && !lstatSync(join(tempDir, f)).isDirectory())) {
-             renameSync(join(tempDir, f), finalBinPath);
-             break;
-          }
-        }
-      }
-      rmSync(tempDir, { recursive: true, force: true });
-    } else {
-      renameSync(dlPath, finalBinPath);
-    }
-
-    if (!IS_WINDOWS && existsSync(finalBinPath)) {
-      chmodSync(finalBinPath, 0o755);
-    }
-    console.log(`Successfully downloaded ${repo} to ${finalBinPath}`);
-    return { cmd: finalBinPath, args: [], cwd: destDir };
-  } catch (err: any) {
-    console.warn(`Failed to fetch release for ${repo} (${err.message}). Falling back to cargo build...`);
-    if (existsSync(repoPath)) {
-      runSync('cargo build', repoPath, false, cargoEnv);
-      return { cmd: 'cargo', args: ['run', '--bin', repo], cwd: repoPath };
-    } else {
-      console.error(`Source directory ${repoPath} not found. Cannot build from source.`);
-      process.exit(1);
-    }
-  }
-}
-
-/**
- * Builds all services and starts them in the background.
- * @returns Array of child processes.
- */
-export function buildAndStartServices(): ChildProcess[] {
+export function buildAndStartServices(config?: OpsConfig): ChildProcess[] {
+  const cfg = config ?? resolveConfig();
   console.log('Resolving pre-built Rust services (or building from source fallback)...');
-  const binDir = join(PARENT_DIR, 'bin');
-  if (!existsSync(binDir)) mkdirSync(binDir, { recursive: true });
+  const binDir = join(cfg.parentDir, 'bin');
+  if (!existsSync(binDir)) {
+    mkdirSync(binDir, { recursive: true });
+  }
 
-  const sharedTargetDir = join(PARENT_DIR, 'shared-cargo-target');
-  const cargoEnv = {
-      CARGO_TARGET_DIR: sharedTargetDir,
-      CARGO_PROFILE_DEV_DEBUG: '0'
+  const sharedTargetDir = join(cfg.parentDir, 'shared-cargo-target');
+  const cargoEnv: Record<string, string> = {
+    CARGO_TARGET_DIR: sharedTargetDir,
+    CARGO_PROFILE_DEV_DEBUG: '0',
   };
 
-  const cpSvc = getOrBuildRustService('cdd-control-plane', binDir, cargoEnv);
-  const storageSvc = getOrBuildRustService('cdd-storage', binDir, cargoEnv);
-  const gatewaySvc = getOrBuildRustService('cdd-gateway', binDir, cargoEnv);
+  const cpSvc = getOrBuildRustService('cdd-control-plane', binDir, cargoEnv, cfg);
+  const storageSvc = getOrBuildRustService('cdd-storage', binDir, cargoEnv, cfg);
+  const gatewaySvc = getOrBuildRustService('cdd-gateway', binDir, cargoEnv, cfg);
 
   const processes: ChildProcess[] = [];
-  const envConfig = {
-      CDD__DATABASE_URL: DATABASE_URL,
-      CDD__REDIS_URL: REDIS_URL,
-      ...cargoEnv,
+  const envConfig: Record<string, string> = {
+    CDD__DATABASE_URL: cfg.databaseUrl,
+    CDD__REDIS_URL: cfg.redisUrl,
+    ...cargoEnv,
   };
 
   console.log('Starting cdd-control-plane...');
-  processes.push(runAsync(cpSvc.cmd, cpSvc.args, cpSvc.cwd, {
-      ...envConfig,
-      CDD__SERVER_BIND: '0.0.0.0:8081'
-  }));
+  processes.push(
+    runAsync(
+      cpSvc.cmd,
+      cpSvc.args,
+      cpSvc.cwd,
+      {
+        ...envConfig,
+        CDD__SERVER_BIND: '0.0.0.0:8081',
+      },
+      cfg.isWindows,
+    ),
+  );
 
   console.log('Starting cdd-storage...');
-  processes.push(runAsync(storageSvc.cmd, storageSvc.args, storageSvc.cwd, {
-      ...envConfig,
-      PORT: '8085'
-  }));
+  processes.push(
+    runAsync(
+      storageSvc.cmd,
+      storageSvc.args,
+      storageSvc.cwd,
+      {
+        ...envConfig,
+        PORT: '8085',
+      },
+      cfg.isWindows,
+    ),
+  );
 
   console.log('Starting cdd-docs-ui...');
-  const docsUiPath = join(PARENT_DIR, 'cdd-docs-ui');
+  const docsUiPath = join(cfg.parentDir, 'cdd-docs-ui');
   runSync('npm install', docsUiPath);
   runSync('npm run build', docsUiPath);
-  processes.push(runAsync('npm', ['run', 'serve'], docsUiPath, envConfig));
+  processes.push(runAsync('npm', ['run', 'serve'], docsUiPath, envConfig, cfg.isWindows));
 
   console.log('Patching cdd-web-ui to use GITHUB_TOKEN...');
-  const wasmScriptPath = join(PARENT_DIR, 'cdd-web-ui', 'scripts', 'build-wasm.mjs');
-  if (existsSync(wasmScriptPath)) {
-    let scriptContent = readFileSync(wasmScriptPath, 'utf8');
-    scriptContent = scriptContent.replace(
-      /{ headers: { 'User-Agent': 'node.js' } }/g,
-      "{ headers: { 'User-Agent': 'node.js', ...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}) } }"
-    );
-    writeFileSync(wasmScriptPath, scriptContent);
-  }
+  const wasmScriptPath = join(cfg.parentDir, 'cdd-web-ui', 'scripts', 'build-wasm.mjs');
+  patchWebUiWasmScript(wasmScriptPath);
 
   console.log('Starting cdd-web-ui...');
-  const webUiPath = join(PARENT_DIR, 'cdd-web-ui');
+  const webUiPath = join(cfg.parentDir, 'cdd-web-ui');
   runSync('npm install', webUiPath);
   runSync('npm run build', webUiPath);
-  processes.push(runAsync('npx', ['--yes', 'serve', '-s', join('dist', 'cdd-web-ui', 'browser'), '-l', '8083'], webUiPath, envConfig));
+  processes.push(
+    runAsync(
+      'npx',
+      ['--yes', 'serve', '-s', join('dist', 'cdd-web-ui', 'browser'), '-l', '8083'],
+      webUiPath,
+      envConfig,
+      cfg.isWindows,
+    ),
+  );
 
   console.log('Starting cdd-gateway...');
-  processes.push(runAsync(gatewaySvc.cmd, gatewaySvc.args, gatewaySvc.cwd, {
-      ...envConfig,
-      CDD__SERVER_BIND: '0.0.0.0:8086'
-  }));
+  processes.push(
+    runAsync(
+      gatewaySvc.cmd,
+      gatewaySvc.args,
+      gatewaySvc.cwd,
+      {
+        ...envConfig,
+        CDD__SERVER_BIND: '0.0.0.0:8086',
+      },
+      cfg.isWindows,
+    ),
+  );
 
   return processes;
 }
 
 /**
- * Runs end-to-end tests via Playwright.
+ * Waits for the gateway health endpoints and executes the Playwright E2E test suite.
+ * @param config - Optional runtime configuration override.
  */
-export function runE2eTests(): void {
+export function runE2eTests(config?: OpsConfig): void {
+  const cfg = config ?? resolveConfig();
   console.log('Waiting for Gateway to be healthy on port 8086...');
-  runSync('wait4x http http://localhost:8086/version http://localhost:8086/api/v1/health http://localhost:8086/ --expect-status-code 200 -t 900s');
+  runSync(
+    'wait4x http http://localhost:8086/version http://localhost:8086/api/v1/health http://localhost:8086/ --expect-status-code 200 -t 900s',
+  );
   console.log('Gateway and downstream services are up!');
 
   console.log('Running E2E tests locally...');
-  const e2ePath = join(REPO_ROOT, 'e2e');
+  const e2ePath = join(cfg.repoRoot, 'e2e');
   runSync('npm install', e2ePath);
   runSync('npx playwright install --with-deps', e2ePath);
 
   try {
-      console.log(`> npx playwright test`);
-      execSync('npx playwright test', {
-          cwd: e2ePath,
-          stdio: 'inherit',
-          env: { ...process.env, BASE_URL: 'http://localhost:8086' }
-      });
-  } catch (_error) {
-      console.error(`Command failed: npx playwright test`);
-      process.exit(1);
-  }
-}
-
-/**
- * The main execution block. Validates requirements, starts background services, runs tests, and cleans up.
- */
-export function main(): void {
-  let bgProcesses: ChildProcess[] = [];
-
-  /**
-   * Cleans up background processes.
-   */
-  const cleanup = () => {
-      console.log('Shutting down background processes...');
-      for (const p of bgProcesses) {
-          try {
-              if (IS_WINDOWS) {
-                  execSync(`taskkill /pid ${p.pid} /T /F`, { stdio: 'ignore' });
-              } else {
-                  p.kill('SIGKILL');
-              }
-          } catch (_e) {
-              // ignore
-          }
-      }
-  };
-
-  process.on('SIGINT', () => { cleanup(); process.exit(1); });
-  process.on('SIGTERM', () => { cleanup(); process.exit(1); });
-  process.on('exit', cleanup);
-
-  try {
-    killPorts();
-    ensureDependencies();
-    setupDatabases();
-    bgProcesses = buildAndStartServices();
-    runE2eTests();
-    console.log('Tests completed successfully.');
-    cleanup();
-    process.exit(0);
-  } catch (_error) {
-    console.error('Test execution failed:', error);
-    cleanup();
+    console.log('> npx playwright test');
+    execSync('npx playwright test', {
+      cwd: e2ePath,
+      stdio: 'inherit',
+      env: { ...process.env, BASE_URL: 'http://localhost:8086' },
+    });
+  } catch {
+    console.error('Command failed: npx playwright test');
     process.exit(1);
   }
 }
 
-if (require.main === module) {
-  main();
+/**
+ * Terminates a list of background child processes across Windows and POSIX platforms.
+ * @param processes - The list of spawned {@link ChildProcess} instances to terminate.
+ * @param isWindows - Whether to use `taskkill` (Windows) or `p.kill('SIGKILL')` (POSIX).
+ */
+export function cleanupProcesses(processes: readonly ChildProcess[], isWindows: boolean = IS_WINDOWS): void {
+  console.log('Shutting down background processes...');
+  for (const proc of processes) {
+    try {
+      if (isWindows) {
+        execSync(`taskkill /pid ${proc.pid} /T /F`, { stdio: 'ignore' });
+      } else {
+        proc.kill('SIGKILL');
+      }
+    } catch {
+      // Process may have already exited; ignore cleanup error.
+    }
+  }
 }
+
+/**
+ * Validates requirements, starts background services, runs E2E tests, and cleans up child processes.
+ * @param config - Optional runtime configuration override.
+ */
+export function main(config?: OpsConfig): void {
+  const cfg = config ?? resolveConfig();
+  let bgProcesses: ChildProcess[] = [];
+
+  /**
+   * Invokes {@link cleanupProcesses} for all active background processes.
+   */
+  const cleanup = (): void => {
+    cleanupProcesses(bgProcesses, cfg.isWindows);
+  };
+
+  /**
+   * Signal handler that cleans up background processes and exits with status code 1.
+   */
+  const handleSignal = (): void => {
+    cleanup();
+    process.exit(1);
+  };
+
+  process.on('SIGINT', handleSignal);
+  process.on('SIGTERM', handleSignal);
+  process.on('exit', cleanup);
+
+  try {
+    killPorts(cfg);
+    ensureDependencies(cfg);
+    setupDatabases(cfg);
+    bgProcesses = buildAndStartServices(cfg);
+    runE2eTests(cfg);
+    console.log('Tests completed successfully.');
+    cleanup();
+    process.exit(0);
+  } catch (error: unknown) {
+    console.error('Test execution failed:', formatError(error));
+    cleanup();
+    process.exit(1);
+  } finally {
+    process.off('SIGINT', handleSignal);
+    process.off('SIGTERM', handleSignal);
+    process.off('exit', cleanup);
+  }
+}
+
+/**
+ * Runs {@link main} when invoked directly as the Node.js entrypoint module.
+ * @param isMain - Whether the current module is the main entrypoint.
+ */
+export function runIfMain(isMain: boolean = require.main === module): void {
+  if (isMain) {
+    main();
+  }
+}
+
+runIfMain();

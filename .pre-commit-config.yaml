@@ -5,5 +5,21 @@ repos:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
-        args: ['--unsafe'] # to skip some strict checks if any
       - id: check-added-large-files
+  - repo: local
+    hooks:
+      - id: typecheck
+        name: TypeScript Typecheck
+        entry: npm run typecheck
+        language: system
+        pass_filenames: false
+      - id: lint
+        name: ESLint & 100% JSDoc Coverage
+        entry: npm run lint
+        language: system
+        pass_filenames: false
+      - id: coverage
+        name: Vitest 100% Unit Test Coverage
+        entry: npm run coverage
+        language: system
+        pass_filenames: false

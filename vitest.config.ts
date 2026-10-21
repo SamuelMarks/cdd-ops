@@ -1,3 +1,8 @@
+/**
+ * @file Vitest configuration enforcing 100% line, function, branch, and statement coverage.
+ * @module vitest.config
+ */
+
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
@@ -7,7 +12,6 @@ export default defineConfig({
       provider: 'v8',
       include: ['scripts/**/*.ts'],
       exclude: ['scripts/**/*.spec.ts'],
-      all: true,
       thresholds: {
         lines: 100,
         functions: 100,

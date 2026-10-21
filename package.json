@@ -1,8 +1,7 @@
 {
   "name": "cdd-ops",
   "version": "1.0.0",
-  "description": "CDD Platform Operations (cdd-ops) ================================= [![License](https://img.shields.io/badge/license-Apache--2.0%20OR%20MIT-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![full-e2e](https://github.com/SamuelMarks/cdd-ops/actions/workflows/full-e2e.yml/badge.svg)](https://github.com/SamuelMarks/cdd-ops/actions)",
-  "main": "index.js",
+  "description": "CDD Platform Operations (cdd-ops): Infrastructure, orchestration, and E2E testing for Compiler Driven Development.",
   "directories": {
     "doc": "docs"
   },
@@ -10,6 +9,7 @@
     "test": "tsx scripts/test.ts",
     "deploy": "tsx scripts/deploy.ts",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit && tsc -p e2e/tsconfig.json --noEmit",
     "test:unit": "vitest run",
     "coverage": "vitest run --coverage"
   },
@@ -17,9 +17,15 @@
     "type": "git",
     "url": "git+https://github.com/SamuelMarks/cdd-ops.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "cdd",
+    "openapi",
+    "operations",
+    "libscript",
+    "playwright"
+  ],
+  "author": "Samuel Marks",
+  "license": "Apache-2.0 OR MIT",
   "type": "commonjs",
   "bugs": {
     "url": "https://github.com/SamuelMarks/cdd-ops/issues"
@@ -27,11 +33,10 @@
   "homepage": "https://github.com/SamuelMarks/cdd-ops#readme",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^26.1.0",
+    "@types/node": "^25.9.3",
     "@vitest/coverage-v8": "^4.1.9",
     "eslint": "^10.6.0",
     "eslint-plugin-jsdoc": "^63.0.10",
-    "ts-node": "^10.9.2",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.62.1",

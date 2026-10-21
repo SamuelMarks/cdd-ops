@@ -2,8 +2,8 @@
 #
 # This workflow orchestrates the native End-to-End (E2E) testing pipeline for the CDD platform.
 # It checks out all necessary repositories (microservices, UI, and ops), provisions dependencies
-# (databases, Node.js, Rust), and executes the consolidated Playwright test suite using the
-# local ops scripts, ensuring that integration across all services functions correctly.
+# (databases, Node.js, Rust), validates TypeScript types, ESLint/JSDoc rules, and 100% unit test
+# coverage, and executes the consolidated Playwright test suite using the local ops scripts.
 
 name: CI
 
@@ -14,7 +14,31 @@ on:
     branches: [ master, main ]
 
 jobs:
+  quality-and-unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout cdd-ops
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+
+      - name: Install dependencies
+        run: |
+          npm install
+          cd e2e && npm install
+
+      - name: Run Typecheck, Lint (100% JSDoc), and 100% Unit Test Coverage
+        run: |
+          npm run typecheck
+          npm run lint
+          npm run coverage
+
   full-e2e:
+    needs: quality-and-unit
     runs-on: ubuntu-latest
     timeout-minutes: 60
     services:

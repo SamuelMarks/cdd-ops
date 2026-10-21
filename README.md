@@ -90,13 +90,14 @@ sequenceDiagram
 ```
 
 The script performs the following operations:
-- **Dependency Provisioning:** Uses `libscript` (with `mise` as the node manager) to install core dependencies like Rust, Node.js, PostgreSQL, and Valkey/Redis.
+- **Dependency Provisioning:** Uses `libscript` (`install <pkg> latest` and `libscript.json`) to install core dependencies like Rust, Node.js, PostgreSQL, and Valkey/Redis.
 - **Database Setup:** Automatically initializes the `cdd` PostgreSQL database.
 - **Service Compilation:** Iterates through all adjacent `cdd-*` repositories (e.g., `cdd-gateway`, `cdd-web-ui`, `cdd-control-plane`, `cdd-engine`, `cdd-storage`, `cdd-publisher`, `cdd-docs-ui`) and builds them in-place using `cargo` or `npm`.
-- **Infrastructure Packaging:** Exports the infrastructure into various formats:
-  - `docker` / `docker-compose`
-  - Installer executables (`msi`, `exe`)
-  - Debian packages (`deb`)
+- **Infrastructure Packaging:** Exports the infrastructure into container and native installer formats via `libscript package-as` using `libscript.json` and `packaging.json`:
+  - `docker` / `docker_compose`
+  - Linux packages (`deb`, `rpm`, `apk_alpine`, `appimage`, `flatpak`, `snap`)
+  - Windows installers (`msi`, `exe`)
+  - macOS & BSD/Illumos packages (`pkg`, `dmg`, `bsd_pkg`, `ips`)
 
 **Usage:**
 ```bash
@@ -126,12 +127,13 @@ Please refer to the detailed [Kubernetes Guide](kubernetes/README.md) for config
 
 For environments where containerization (Docker/Kubernetes) is not preferred or available, the CDD ecosystem can be deployed natively on bare metal servers or virtual machines using standard OS-level package managers.
 
-The `scripts/deploy.sh` (or `scripts/deploy.cmd`) system utilizes `libscript` to generate native installers.
+The `scripts/deploy.sh` (or `scripts/deploy.cmd`) system utilizes `libscript`, `libscript.json`, and `packaging.json` to generate native installers.
 
-**Available Package Formats:**
-*   **Debian/Ubuntu (`.deb`):** Deploys the Rust binaries, configures `systemd` services, and sets up Nginx as the gateway.
-*   **Windows Installer (`.msi` / `.exe`):** Installs the services as Windows Background Services.
-*   **macOS (`.pkg`):** Installs the binaries and configures `launchd` daemons for background execution.
+**Available Package Formats (`--target <format>`):**
+*   **Debian/Ubuntu (`deb`) & Enterprise Linux (`rpm`, `apk_alpine`):** Deploys the Rust binaries, configures `systemd`/`openrc` services, and sets up Nginx as the gateway.
+*   **Universal Linux Bundles (`appimage`, `flatpak`, `snap`):** Self-contained desktop and server application bundles.
+*   **Windows Installer (`msi` / `exe`):** Uses `packaging.json` (`upgrade_code`, `database_contracts`, `services`) to install the services as Windows Background Services via WiX / `msi-rs`.
+*   **macOS (`pkg`, `dmg`) & BSD/Illumos (`bsd_pkg`, `ips`):** Installs the binaries and configures `launchd`, `rc.d`, or `smf` daemons for background execution.
 
 **Benefits of Native Deployment:**
 *   **Lower Overhead:** Direct access to host resources without container virtualization overhead.
@@ -143,10 +145,12 @@ The `scripts/deploy.sh` (or `scripts/deploy.cmd`) system utilizes `libscript` to
 2.  **Databases:** PostgreSQL and Valkey/Redis installed natively via system packages.
 3.  **CDD Services:** Installed via `.deb` or `.msi`. Each service (`cdd-control-plane`, `cdd-engine`, etc.) runs as a dedicated system user (e.g., `cdd-user`) with a corresponding OS service file ensuring automatic restarts and proper privilege isolation.
 
-To generate the native packages, run the build script with the native packaging flags:
+To generate the native packages, run the build script with one or more `--target` packaging flags:
 ```bash
-# Example: Build a Debian package
-./scripts/deploy.sh --target deb
+# Example: Build Debian and Windows MSI packages
+./scripts/deploy.sh --target deb --target msi
+# or on Windows:
+.\scripts\deploy.cmd --target msi
 ```
 
 ## Testing
