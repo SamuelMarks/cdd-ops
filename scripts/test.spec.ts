@@ -67,8 +67,18 @@ function expectExec(substring: string): void {
 }
 
 describe('scripts/lib/ports.ts & scripts/test.ts', () => {
+  const originalEnv = process.env;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env = { ...originalEnv };
+    delete process.env['GITHUB_ACTIONS'];
+    delete process.env['GITHUB_TOKEN'];
+    delete process.env['POSTGRES_HOST'];
+    delete process.env['POSTGRES_PORT'];
+    delete process.env['POSTGRES_USER'];
+    delete process.env['VALKEY_HOST'];
+    delete process.env['VALKEY_PORT'];
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -77,6 +87,7 @@ describe('scripts/lib/ports.ts & scripts/test.ts', () => {
   });
 
   afterEach(() => {
+    process.env = originalEnv;
     vi.restoreAllMocks();
   });
 
