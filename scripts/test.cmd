@@ -1,7 +1,7 @@
 @echo off
 setlocal enabledelayedexpansion
 
-REM scripts	est.cmd
+REM scripts\test.cmd
 REM Windows Command Prompt entrypoint for running the CDD platform test suite.
 
 pushd "%~dp0.."
