@@ -166,7 +166,9 @@ export class CddPlatformPage {
    * @returns A promise that resolves once the dialog is no longer visible.
    */
   async dismissWasmDialog(): Promise<void> {
-    const loadWasmButton = this.page.getByRole('button', { name: /load ~295mb of wasm/i });
+    const loadWasmButton = this.page.getByRole('button', {
+      name: /load ~?\d+\s*mb of wasm/i,
+    });
     if (await loadWasmButton.isVisible()) {
       await loadWasmButton.click();
       await loadWasmButton.waitFor({ state: 'hidden' });
