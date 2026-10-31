@@ -1,4 +1,5 @@
 {
+  "$schema": "../libscript/libscript.schema.json",
   "name": "cdd",
   "version": "0.0.1",
   "description": "Compiler Driven Development (CDD) Platform Stack",
@@ -52,15 +53,71 @@
     "CADDY_PORT_HTTP": 8080,
     "NGINX_PORT": 8080
   },
+  "databases": [
+    {
+      "id": "cdd-postgres",
+      "engine": "postgres",
+      "host": "localhost",
+      "port": 5432,
+      "db": "cdd",
+      "user": "postgres",
+      "url_env": "CDD__DATABASE_URL",
+      "migrations": [
+        {
+          "cwd": "../cdd-control-plane",
+          "command": "diesel migration run"
+        }
+      ]
+    },
+    {
+      "id": "cdd-valkey",
+      "engine": "valkey",
+      "host": "localhost",
+      "port": 6379,
+      "url_env": "CDD__REDIS_URL"
+    }
+  ],
+  "frontends": [
+    {
+      "name": "cdd-docs-ui",
+      "framework": "angular",
+      "cwd": "../cdd-docs-ui",
+      "install_command": "npm install",
+      "build_command": "npm run build",
+      "dist_dir": "dist",
+      "artifact_check": "../cdd-docs-ui/dist",
+      "serve": {
+        "server": "nginx",
+        "port": 8082,
+        "spa_fallback": true
+      }
+    },
+    {
+      "name": "cdd-web-ui",
+      "framework": "angular",
+      "cwd": "../cdd-web-ui",
+      "install_command": "npm install",
+      "build_command": "npm run build",
+      "dist_dir": "dist/cdd-web-ui/browser",
+      "artifact_check": "../cdd-web-ui/dist/cdd-web-ui/browser/index.html",
+      "serve": {
+        "server": "nginx",
+        "port": 8083,
+        "spa_fallback": true
+      }
+    }
+  ],
   "hooks": {
     "build": [
       {
         "name": "install-ops-deps",
-        "command": "npm install"
+        "command": "npm install",
+        "artifact_check": "node_modules"
       },
       {
         "name": "build-microservices",
-        "command": "npm run deploy"
+        "command": "npm run deploy",
+        "artifact_check": "../bin"
       }
     ],
     "pre_start": [
@@ -74,7 +131,8 @@
       },
       {
         "name": "ensure-cdd-database",
-        "command": "psql -h localhost -U postgres -tc \"SELECT 1 FROM pg_database WHERE datname = 'cdd'\" | grep -q 1 || psql -h localhost -U postgres -c \"CREATE DATABASE cdd\""
+        "command": "psql -h localhost -U postgres -c \"CREATE DATABASE cdd\"",
+        "ignore_errors": true
       }
     ],
     "post_start": [
@@ -89,6 +147,10 @@
       "name": "cdd-control-plane",
       "command": "../bin/cdd-control-plane",
       "cwd": ".",
+      "port": 8081,
+      "health_url": "http://localhost:8081/health",
+      "health_timeout": 60,
+      "depends_on": ["postgres", "valkey"],
       "env": {
         "CDD__DATABASE_URL": "postgres://postgres@localhost:5432/cdd",
         "CDD__REDIS_URL": "redis://localhost:6379",
@@ -96,9 +158,23 @@
       }
     },
     {
+      "name": "cdd-engine",
+      "command": "../bin/cdd-engine",
+      "cwd": ".",
+      "depends_on": ["postgres", "valkey", "cdd-control-plane"],
+      "env": {
+        "CDD__DATABASE_URL": "postgres://postgres@localhost:5432/cdd",
+        "CDD__REDIS_URL": "redis://localhost:6379"
+      }
+    },
+    {
       "name": "cdd-storage",
       "command": "../bin/cdd-storage",
       "cwd": ".",
+      "port": 8085,
+      "health_url": "http://localhost:8085/health",
+      "health_timeout": 60,
+      "depends_on": ["postgres", "valkey"],
       "env": {
         "CDD__DATABASE_URL": "postgres://postgres@localhost:5432/cdd",
         "CDD__REDIS_URL": "redis://localhost:6379",
@@ -106,9 +182,22 @@
       }
     },
     {
+      "name": "cdd-publisher",
+      "command": "../bin/cdd-publisher",
+      "cwd": ".",
+      "depends_on": ["postgres", "valkey", "cdd-storage"],
+      "env": {
+        "CDD__DATABASE_URL": "postgres://postgres@localhost:5432/cdd",
+        "CDD__REDIS_URL": "redis://localhost:6379"
+      }
+    },
+    {
       "name": "cdd-docs-ui",
       "command": "npm run serve",
       "cwd": "../cdd-docs-ui",
+      "port": 8082,
+      "health_url": "http://localhost:8082",
+      "health_timeout": 60,
       "env": {
         "PORT": "8082"
       }
@@ -117,6 +206,9 @@
       "name": "cdd-web-ui",
       "command": "npx --yes serve -s dist/cdd-web-ui/browser -l 8083",
       "cwd": "../cdd-web-ui",
+      "port": 8083,
+      "health_url": "http://localhost:8083",
+      "health_timeout": 60,
       "env": {
         "PORT": "8083"
       }
@@ -125,6 +217,10 @@
       "name": "cdd-gateway",
       "command": "../bin/cdd-gateway",
       "cwd": ".",
+      "port": 8086,
+      "health_url": "http://localhost:8086/health",
+      "health_timeout": 60,
+      "depends_on": ["cdd-control-plane", "cdd-storage", "cdd-docs-ui", "cdd-web-ui"],
       "env": {
         "CDD__DATABASE_URL": "postgres://postgres@localhost:5432/cdd",
         "CDD__REDIS_URL": "redis://localhost:6379",

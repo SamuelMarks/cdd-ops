@@ -42,7 +42,7 @@ flowchart TB
 ```mermaid
 flowchart TD
     subgraph Phase1 ["1. Provision Dependencies (libscript)"]
-        A1[Install Toolchains:<br/>Rust, Node.js]
+        A1[Install Toolchains:<br/>Rust, Node.js, wait4x]
         A2[Install Proxy:<br/>Nginx]
         A3[Install Databases:<br/>Postgres, Valkey]
     end
@@ -60,7 +60,7 @@ flowchart TD
 
     subgraph Phase4 ["4. Production Release (libscript)"]
         D1[deploy-remote:<br/>Sync & Provision Host]
-        D2[daemonize / up:<br/>Manage Services & Health]
+        D2[daemonize / up / health:<br/>Manage Services & State]
         D1 --> D2
     end
 
@@ -84,7 +84,8 @@ Two scripts are provided in the repository root for streamlined setup:
    - Nginx (`libscript install nginx latest`)
    - Postgres (`libscript install postgres latest`)
    - Valkey (`libscript install valkey latest`)
-   - Declarative stack dependencies (`libscript install-deps libscript.json`)
+   - wait4x (`libscript install wait4x latest`)
+   - Declarative stack dependencies and frontends (`libscript install-deps libscript.json`)
 
 2. **Clone Microservices:**
    Just like the GitHub Actions CI workflow, the scripts navigate to the parent directory to clone the necessary CDD repositories alongside `cdd-ops`. This includes:
@@ -136,16 +137,24 @@ Once the local build completes, use `libscript deploy-remote` to synchronize loc
   --health-apps="cdd-ops"
 ```
 
-### 2. Service Lifecycle & Health Management
+### 2. Service, Database, & State Lifecycle Management
 
-Both locally and on remote hosts, `libscript` manages the lifecycle of all services declared in `libscript.json` across native init systems (`systemd`, `openrc`, `runit`, `s6`, `dinit`, `launchd`, FreeBSD `rc.d`, Illumos `smf`, and Windows Services):
+Both locally and on remote hosts, `libscript` manages the lifecycle of all `databases`, `frontends`, and `services` declared in `libscript.json` across native init systems (`systemd`, `openrc`, `runit`, `s6`, `dinit`, `launchd`, FreeBSD `rc.d`, Illumos `smf`, and Windows Services):
 
 ```sh
+# Provision databases and run migrations declared in libscript.json
+../libscript/libscript.sh provision-db libscript.json
+
 # Start all CDD services and run pre_start/post_start hooks
 ../libscript/libscript.sh up libscript.json
 
-# Check service status
+# Check service status and deep HTTP/database health
 ../libscript/libscript.sh status libscript.json
+../libscript/libscript.sh health libscript.json
+
+# Export or import database and application state snapshots
+../libscript/libscript.sh export-state libscript.json ./backups/snapshot
+../libscript/libscript.sh import-state libscript.json ./backups/snapshot
 
 # Restart or stop the stack
 ../libscript/libscript.sh restart libscript.json

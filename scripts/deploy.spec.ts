@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as child_process from 'node:child_process';
 import * as fs from 'node:fs';
 import { Stats } from 'node:fs';
+import { join } from 'node:path';
 import * as deploy from './deploy';
 import { resolveConfig, selectLibscript, LIBSCRIPT_CMD, LIBSCRIPT_SH, REPO_ROOT, PARENT_DIR } from './lib/constants';
 import { resolveTargetTriplet, findExtractedBinary, getOrBuildRustService } from './lib/rust-service';
@@ -23,7 +24,10 @@ import {
   ensureWait4x as ensureWait4xDirect,
   ensureDependencies as ensureDependenciesDirect,
   setupDatabases as setupDatabasesDirect,
+  runLibscriptDbAction,
 } from './lib/dependencies';
+import libscriptManifest from '../libscript.json';
+import packagingManifest from '../packaging.json';
 
 vi.mock('node:child_process', () => ({
   execSync: vi.fn(),
@@ -104,8 +108,30 @@ describe('scripts/lib/types.ts & scripts/lib/constants.ts', () => {
       expect(isPackageFormat(fmt)).toBe(true);
     }
     expect(isPackageFormat('unknown_format')).toBe(false);
+    expect(isPackageFormat('exe')).toBe(false);
+    expect(isPackageFormat('appimage')).toBe(false);
+    expect(isPackageFormat('ips')).toBe(false);
     expect(isPackageFormat(123)).toBe(false);
     expect(isPackageFormat(null)).toBe(false);
+  });
+
+  it('validates libscript.json and packaging.json structural contracts', () => {
+    expect(libscriptManifest.$schema).toBe('../libscript/libscript.schema.json');
+    expect(libscriptManifest.name).toBe('cdd');
+    expect(libscriptManifest.deps).toHaveProperty('rust', 'latest');
+    expect(libscriptManifest.deps).toHaveProperty('wait4x', 'latest');
+    expect(libscriptManifest.frontends).toHaveLength(2);
+    expect(libscriptManifest.databases).toHaveLength(2);
+    expect(libscriptManifest.services).toHaveLength(7);
+
+    expect(packagingManifest.$schema).toBe('../libscript/packaging/packaging.schema.json');
+    expect(packagingManifest.name).toBe('cdd');
+    expect(packagingManifest.upgrade_code).toMatch(
+      /^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$/,
+    );
+    expect(packagingManifest.database_contracts).toHaveLength(2);
+    expect(packagingManifest.services).toHaveLength(7);
+    expect(packagingManifest.ingress.routes).toHaveLength(4);
   });
 
   it('parses deploy CLI arguments with parseDeployArgs', () => {
@@ -113,7 +139,11 @@ describe('scripts/lib/types.ts & scripts/lib/constants.ts', () => {
     expect(deploy.parseDeployArgs([])).toEqual(['docker', 'docker_compose']);
     expect(deploy.parseDeployArgs(['--verbose'])).toEqual(['docker', 'docker_compose']);
     expect(deploy.parseDeployArgs(['--target', 'deb'])).toEqual(['deb']);
-    expect(deploy.parseDeployArgs(['--target=msi', '--target', 'rpm'])).toEqual(['msi', 'rpm']);
+    expect(deploy.parseDeployArgs(['--target=msi', '--target', 'rpm', '--target=iso'])).toEqual([
+      'msi',
+      'rpm',
+      'iso',
+    ]);
 
     expect(() => deploy.parseDeployArgs(['--target'])).toThrow('Missing value for --target flag.');
     expect(() => deploy.parseDeployArgs(['--target', '--other'])).toThrow(
@@ -317,6 +347,23 @@ describe('scripts/deploy.ts', () => {
     expectExec('findstr "1" >nul');
   });
 
+  it('runLibscriptDbAction executes provision-db, deprovision-db, export-state, and import-state', () => {
+    const cfg = makeConfig('linux', 'x64');
+    vi.mocked(child_process.execSync).mockReturnValue(Buffer.from('ok'));
+
+    runLibscriptDbAction('provision-db');
+    expectExec('provision-db');
+
+    runLibscriptDbAction('deprovision-db', '/custom/libscript.json', undefined, cfg);
+    expectExec('deprovision-db "/custom/libscript.json"');
+
+    runLibscriptDbAction('export-state', '/custom/libscript.json', '/tmp/state', cfg);
+    expectExec('export-state "/custom/libscript.json" "/tmp/state"');
+
+    runLibscriptDbAction('import-state', undefined, '/tmp/state', cfg);
+    expectExec(`import-state "${join(cfg.repoRoot, 'libscript.json')}" "/tmp/state"`);
+  });
+
   it('findExtractedBinary filters archives, directories, and matching binaries', () => {
     vi.mocked(fs.lstatSync).mockImplementation((p) => {
       return createMockStats(String(p).endsWith('subdir'));
@@ -518,7 +565,30 @@ describe('scripts/deploy.ts', () => {
     expect(console.log).toHaveBeenCalledWith(expect.stringContaining('not found, skipping'));
   });
 
-  it('exportInfrastructure creates outDir when missing, skips mkdir when present, and supports custom targets', () => {
+  it('buildPackageAsCommand and exportInfrastructure handle docker, compose, installers, packages, and VM images', () => {
+    const cfg = makeConfig('linux', 'x64');
+    const outDir = '/tmp/dist';
+
+    expect(deploy.buildPackageAsCommand('docker', cfg, outDir)).toContain(
+      `package-as docker --output "${join(outDir, 'Dockerfile')}"`,
+    );
+    expect(deploy.buildPackageAsCommand('dockerfile', cfg, outDir)).toContain(
+      `package-as dockerfile --output "${join(outDir, 'Dockerfile')}"`,
+    );
+    expect(deploy.buildPackageAsCommand('docker_compose', cfg, outDir)).toContain(
+      `package-as docker_compose "${join(cfg.repoRoot, 'libscript.json')}" --output "${join(outDir, 'docker-compose.yml')}"`,
+    );
+    expect(deploy.buildPackageAsCommand('docker-compose', cfg, outDir)).toContain(
+      `package-as docker-compose "${join(cfg.repoRoot, 'libscript.json')}" --output "${join(outDir, 'docker-compose.yml')}"`,
+    );
+    expect(deploy.buildPackageAsCommand('msi', cfg, outDir)).toContain(
+      `package-as msi --app-name "CDD Platform" --app-version "0.0.1" --app-publisher "CDD Open Source Project" --upgrade-code "A7D43B82-6E19-4F0C-9B25-3C8A1D7E4F90" --out-file "${join(outDir, 'cdd-installer')}"`,
+    );
+    expect(deploy.buildPackageAsCommand('deb', cfg, outDir)).toContain(
+      'package-as deb --app-name "CDD Platform" --app-version "0.0.1" --app-publisher "CDD Open Source Project" --upgrade-code "A7D43B82-6E19-4F0C-9B25-3C8A1D7E4F90"',
+    );
+    expect(deploy.buildPackageAsCommand('iso', cfg, outDir)).toBe(`"${cfg.libscript}" package-as iso`);
+
     vi.mocked(fs.existsSync).mockReturnValue(false);
     deploy.exportInfrastructure();
     expect(fs.mkdirSync).toHaveBeenCalled();
@@ -527,10 +597,11 @@ describe('scripts/deploy.ts', () => {
 
     vi.clearAllMocks();
     vi.mocked(fs.existsSync).mockReturnValue(true);
-    deploy.exportInfrastructure(makeConfig('linux', 'x64'), ['deb', 'msi']);
+    deploy.exportInfrastructure(cfg, ['deb', 'msi', 'iso']);
     expect(fs.mkdirSync).not.toHaveBeenCalled();
-    expectExec('package-as deb --service-name cdd');
-    expectExec('package-as msi --service-name cdd');
+    expectExec('package-as deb --app-name "CDD Platform"');
+    expectExec('package-as msi --app-name "CDD Platform"');
+    expectExec('package-as iso');
   });
 
   it('main and runIfMain handle success, custom targets, errors, and entrypoint check', () => {
@@ -545,7 +616,7 @@ describe('scripts/deploy.ts', () => {
     vi.mocked(fs.existsSync).mockReturnValue(true);
     vi.mocked(fs.lstatSync).mockReturnValue(createMockStats(true));
     deploy.main(makeConfig('linux', 'x64'), ['--target', 'deb']);
-    expectExec('package-as deb --service-name cdd');
+    expectExec('package-as deb --app-name "CDD Platform"');
 
     vi.clearAllMocks();
     deploy.runIfMain(false);

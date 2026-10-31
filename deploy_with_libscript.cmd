@@ -17,6 +17,7 @@ call "%LIBSCRIPT_CMD%" install nodejs latest
 call "%LIBSCRIPT_CMD%" install nginx latest
 call "%LIBSCRIPT_CMD%" install postgres latest
 call "%LIBSCRIPT_CMD%" install valkey latest
+call "%LIBSCRIPT_CMD%" install wait4x latest
 if exist "%SCRIPT_DIR%libscript.json" (
     call "%LIBSCRIPT_CMD%" install-deps "%SCRIPT_DIR%libscript.json"
 )

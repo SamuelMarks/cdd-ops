@@ -105,42 +105,117 @@ export interface SetupDatabasesOptions {
 export type RustFallbackMode = 'skip-if-missing' | 'exit-if-missing';
 
 /**
- * Supported `libscript package-as` distribution and container target formats.
+ * Database and state lifecycle verbs supported by `libscript`.
+ */
+export type LibscriptDbAction = 'provision-db' | 'deprovision-db' | 'export-state' | 'import-state';
+
+/**
+ * Metadata extracted from `packaging.json` for invoking `libscript package-as` installer generators.
+ */
+export interface PackagingManifestSummary {
+  /** Component or stack identifier (e.g., `'cdd'`). */
+  readonly name: string;
+  /** Human-readable product title (e.g., `'Compiler Driven Development (CDD) Platform'`). */
+  readonly title: string;
+  /** Semantic version string (e.g., `'0.0.1'`). */
+  readonly version: string;
+  /** Publisher or organization name (e.g., `'CDD Open Source Project'`). */
+  readonly publisher: string;
+  /** Deterministic UUIDv4 upgrade code GUID. */
+  readonly upgrade_code: string;
+}
+
+/**
+ * Supported `libscript package-as` distribution, container, and image target formats.
  */
 export type PackageFormat =
   | 'docker'
+  | 'dockerfile'
   | 'docker_compose'
+  | 'docker-compose'
+  | 'docker-image'
+  | 'oci-image'
+  | 'msi'
+  | 'innosetup'
+  | 'nsis'
   | 'deb'
   | 'rpm'
-  | 'msi'
-  | 'exe'
+  | 'apk'
+  | 'txz'
   | 'pkg'
   | 'dmg'
-  | 'appimage'
-  | 'flatpak'
-  | 'snap'
-  | 'apk_alpine'
-  | 'bsd_pkg'
-  | 'ips';
+  | 'tui'
+  | 'iso'
+  | 'raw-img'
+  | 'qcow2'
+  | 'vmdk'
+  | 'vdi'
+  | 'rootfs-tar'
+  | 'bsd-img'
+  | 'illumos-distro'
+  | 'freebsd-distro'
+  | 'unikernel'
+  | 'qemu-qcow2'
+  | 'vmware-vmdk'
+  | 'hyperv-vhd'
+  | 'hyperv-vhdx'
+  | 'proxmox-template'
+  | 'virtualbox-vdi'
+  | 'virtualbox-ova'
+  | 'xen-img'
+  | 'microvm-disk'
+  | 'aws-ami'
+  | 'azure-vhd'
+  | 'gcp-image'
+  | 'cloud-img'
+  | 'vagrant-box'
+  | 'disk-builder';
 
 /**
- * Immutable list of all valid {@link PackageFormat} identifiers.
+ * Immutable list of all valid {@link PackageFormat} identifiers supported by `libscript package-as`.
  */
 export const PACKAGE_FORMATS: readonly PackageFormat[] = [
   'docker',
+  'dockerfile',
   'docker_compose',
+  'docker-compose',
+  'docker-image',
+  'oci-image',
+  'msi',
+  'innosetup',
+  'nsis',
   'deb',
   'rpm',
-  'msi',
-  'exe',
+  'apk',
+  'txz',
   'pkg',
   'dmg',
-  'appimage',
-  'flatpak',
-  'snap',
-  'apk_alpine',
-  'bsd_pkg',
-  'ips',
+  'tui',
+  'iso',
+  'raw-img',
+  'qcow2',
+  'vmdk',
+  'vdi',
+  'rootfs-tar',
+  'bsd-img',
+  'illumos-distro',
+  'freebsd-distro',
+  'unikernel',
+  'qemu-qcow2',
+  'vmware-vmdk',
+  'hyperv-vhd',
+  'hyperv-vhdx',
+  'proxmox-template',
+  'virtualbox-vdi',
+  'virtualbox-ova',
+  'xen-img',
+  'microvm-disk',
+  'aws-ami',
+  'azure-vhd',
+  'gcp-image',
+  'cloud-img',
+  'vagrant-box',
+  'disk-builder',
 ];
 
 /**

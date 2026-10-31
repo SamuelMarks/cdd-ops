@@ -28,7 +28,13 @@ import {
 } from './lib/dependencies';
 import { hasCommand, runSync } from './lib/exec';
 import { getOrBuildRustService as getOrBuildRustServiceShared } from './lib/rust-service';
-import { formatError, isPackageFormat, OpsConfig, PackageFormat } from './lib/types';
+import {
+  formatError,
+  isPackageFormat,
+  OpsConfig,
+  PackageFormat,
+  PackagingManifestSummary,
+} from './lib/types';
 
 export {
   IS_WINDOWS,
@@ -52,6 +58,39 @@ export {
  * Default packaging formats generated when no `--target` CLI flags are provided.
  */
 export const DEFAULT_PACKAGE_TARGETS: readonly PackageFormat[] = ['docker', 'docker_compose'];
+
+/**
+ * Default CDD packaging metadata aligned with `packaging.json` for `_common_installer_args`.
+ */
+export const DEFAULT_PACKAGING_METADATA: PackagingManifestSummary = {
+  name: 'cdd',
+  title: 'CDD Platform',
+  version: '0.0.1',
+  publisher: 'CDD Open Source Project',
+  upgrade_code: 'A7D43B82-6E19-4F0C-9B25-3C8A1D7E4F90',
+};
+
+/**
+ * Installer formats backed by `_common_installer_args` that accept `--out-file`.
+ */
+const OUT_FILE_INSTALLER_FORMATS: readonly PackageFormat[] = [
+  'msi',
+  'innosetup',
+  'nsis',
+  'pkg',
+  'dmg',
+];
+
+/**
+ * Package formats backed by `_common_installer_args` that use `OUT_DIR` environment routing.
+ */
+const COMMON_ARGS_PACKAGE_FORMATS: readonly PackageFormat[] = [
+  'deb',
+  'rpm',
+  'apk',
+  'txz',
+  'tui',
+];
 
 /**
  * Parses CLI arguments passed to `deploy` to extract requested `--target` packaging formats.
@@ -170,6 +209,40 @@ export function buildMicroservices(config?: OpsConfig): void {
 }
 
 /**
+ * Builds the `libscript package-as` CLI command string for a given target format.
+ * @param target - The requested {@link PackageFormat} target.
+ * @param cfg - Active {@link OpsConfig} runtime configuration.
+ * @param outDir - Destination directory for generated package artifacts.
+ * @param metadata - Installer metadata (defaults to {@link DEFAULT_PACKAGING_METADATA}).
+ * @returns The formatted `libscript package-as` command string.
+ */
+export function buildPackageAsCommand(
+  target: PackageFormat,
+  cfg: OpsConfig,
+  outDir: string,
+  metadata: PackagingManifestSummary = DEFAULT_PACKAGING_METADATA,
+): string {
+  if (target === 'docker' || target === 'dockerfile') {
+    const dockerfileOut = join(outDir, 'Dockerfile');
+    return `"${cfg.libscript}" package-as ${target} --output "${dockerfileOut}"`;
+  }
+  if (target === 'docker_compose' || target === 'docker-compose') {
+    const manifestPath = join(cfg.repoRoot, 'libscript.json');
+    const composeOut = join(outDir, 'docker-compose.yml');
+    return `"${cfg.libscript}" package-as ${target} "${manifestPath}" --output "${composeOut}"`;
+  }
+  const commonFlags = `--app-name "${metadata.title}" --app-version "${metadata.version}" --app-publisher "${metadata.publisher}" --upgrade-code "${metadata.upgrade_code}"`;
+  if (OUT_FILE_INSTALLER_FORMATS.includes(target)) {
+    const outFile = join(outDir, `${metadata.name}-installer`);
+    return `"${cfg.libscript}" package-as ${target} ${commonFlags} --out-file "${outFile}"`;
+  }
+  if (COMMON_ARGS_PACKAGE_FORMATS.includes(target)) {
+    return `"${cfg.libscript}" package-as ${target} ${commonFlags}`;
+  }
+  return `"${cfg.libscript}" package-as ${target}`;
+}
+
+/**
  * Generates external infrastructure packaging formats (`docker`, `docker_compose`, `.deb`, `.msi`, etc.).
  * @param config - Optional runtime configuration override.
  * @param targets - Optional list of packaging formats to export (defaults to `['docker', 'docker_compose']`).
@@ -184,17 +257,10 @@ export function exportInfrastructure(
     mkdirSync(outDir, { recursive: true });
   }
   const envOpts = { OUT_DIR: outDir };
-  const manifestPath = join(cfg.repoRoot, 'libscript.json');
   console.log('Exporting infrastructure formats...');
   for (const target of targets) {
-    if (target === 'docker') {
-      const dockerfileOut = join(outDir, 'Dockerfile');
-      runSync(`"${cfg.libscript}" package-as docker --output "${dockerfileOut}"`, cfg.repoRoot, false, envOpts);
-    } else if (target === 'docker_compose') {
-      runSync(`"${cfg.libscript}" package-as docker_compose "${manifestPath}"`, cfg.repoRoot, false, envOpts);
-    } else {
-      runSync(`"${cfg.libscript}" package-as ${target} --service-name cdd`, cfg.repoRoot, false, envOpts);
-    }
+    const cmd = buildPackageAsCommand(target, cfg, outDir);
+    runSync(cmd, cfg.repoRoot, false, envOpts);
   }
 }
 

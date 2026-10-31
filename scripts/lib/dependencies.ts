@@ -7,7 +7,12 @@ import { execSync } from 'node:child_process';
 import { join } from 'node:path';
 import { resolveConfig } from './constants';
 import { hasCommand, runSync } from './exec';
-import { EnsureDependenciesOptions, SetupDatabasesOptions } from './types';
+import {
+  EnsureDependenciesOptions,
+  LibscriptDbAction,
+  OpsConfig,
+  SetupDatabasesOptions,
+} from './types';
 
 /**
  * Ensures the `wait4x` utility is installed via `libscript`.
@@ -148,6 +153,28 @@ export function buildCreateDbCommand(pgHost: string, pgUser: string, isWindows: 
   return isWindows
     ? `psql -h ${pgHost} -U ${pgUser} -tc "SELECT 1 FROM pg_database WHERE datname = 'cdd'" | findstr "1" >nul || psql -h ${pgHost} -U ${pgUser} -c "CREATE DATABASE cdd"`
     : `psql -h ${pgHost} -U ${pgUser} -tc "SELECT 1 FROM pg_database WHERE datname = 'cdd'" | grep -q 1 || psql -h ${pgHost} -U ${pgUser} -c "CREATE DATABASE cdd"`;
+}
+
+/**
+ * Executes a declarative `libscript` database or state lifecycle action (`provision-db`, `deprovision-db`, `export-state`, `import-state`).
+ * @param action - The database or state lifecycle verb to execute.
+ * @param manifestPath - Optional path to `libscript.json` (defaults to `<repoRoot>/libscript.json`).
+ * @param stateDir - Optional target directory for `export-state` or `import-state`.
+ * @param config - Optional runtime configuration override.
+ */
+export function runLibscriptDbAction(
+  action: LibscriptDbAction,
+  manifestPath?: string,
+  stateDir?: string,
+  config?: OpsConfig,
+): void {
+  const cfg = config ?? resolveConfig();
+  const resolvedManifest = manifestPath ?? join(cfg.repoRoot, 'libscript.json');
+  if ((action === 'export-state' || action === 'import-state') && stateDir !== undefined) {
+    runSync(`"${cfg.libscript}" ${action} "${resolvedManifest}" "${stateDir}"`, cfg.repoRoot);
+    return;
+  }
+  runSync(`"${cfg.libscript}" ${action} "${resolvedManifest}"`, cfg.repoRoot);
 }
 
 /**

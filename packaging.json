@@ -32,46 +32,136 @@
     {
       "id": "cdd-control-plane",
       "type": "custom",
+      "binary_Or_Entrypoint": "bin/cdd-control-plane",
+      "args": [],
+      "working_directory": ".",
       "port_binding": 8081,
       "environment_overrides": {
         "CDD__SERVER_BIND": "0.0.0.0:8081"
+      },
+      "health_check": {
+        "type": "http",
+        "endpoint": "http://localhost:8081/health",
+        "interval_seconds": 10,
+        "retries": 6
       }
     },
     {
       "id": "cdd-engine",
-      "type": "worker"
+      "type": "worker",
+      "binary_Or_Entrypoint": "bin/cdd-engine",
+      "args": [],
+      "working_directory": ".",
+      "health_check": {
+        "type": "command",
+        "endpoint": "echo ok",
+        "interval_seconds": 30,
+        "retries": 3
+      }
     },
     {
       "id": "cdd-storage",
       "type": "custom",
+      "binary_Or_Entrypoint": "bin/cdd-storage",
+      "args": [],
+      "working_directory": ".",
       "port_binding": 8085,
       "environment_overrides": {
         "PORT": "8085"
+      },
+      "health_check": {
+        "type": "http",
+        "endpoint": "http://localhost:8085/health",
+        "interval_seconds": 10,
+        "retries": 6
       }
     },
     {
       "id": "cdd-publisher",
-      "type": "worker"
+      "type": "worker",
+      "binary_Or_Entrypoint": "bin/cdd-publisher",
+      "args": [],
+      "working_directory": ".",
+      "health_check": {
+        "type": "command",
+        "endpoint": "echo ok",
+        "interval_seconds": 30,
+        "retries": 3
+      }
     },
     {
       "id": "cdd-docs-ui",
       "type": "static",
-      "port_binding": 8082
+      "binary_Or_Entrypoint": "npm",
+      "args": ["run", "serve"],
+      "working_directory": "cdd-docs-ui",
+      "port_binding": 8082,
+      "health_check": {
+        "type": "http",
+        "endpoint": "http://localhost:8082",
+        "interval_seconds": 10,
+        "retries": 6
+      }
     },
     {
       "id": "cdd-web-ui",
       "type": "static",
-      "port_binding": 8083
+      "binary_Or_Entrypoint": "npx",
+      "args": ["--yes", "serve", "-s", "dist/cdd-web-ui/browser", "-l", "8083"],
+      "working_directory": "cdd-web-ui",
+      "port_binding": 8083,
+      "health_check": {
+        "type": "http",
+        "endpoint": "http://localhost:8083",
+        "interval_seconds": 10,
+        "retries": 6
+      }
     },
     {
       "id": "cdd-gateway",
       "type": "proxy",
+      "binary_Or_Entrypoint": "bin/cdd-gateway",
+      "args": [],
+      "working_directory": ".",
       "port_binding": 8086,
       "environment_overrides": {
         "CDD__SERVER_BIND": "0.0.0.0:8086"
+      },
+      "health_check": {
+        "type": "http",
+        "endpoint": "http://localhost:8086/health",
+        "interval_seconds": 10,
+        "retries": 6
       }
     }
   ],
+  "ingress": {
+    "default_http_port": 8080,
+    "default_https_port": 8443,
+    "tls_mode": "self-signed",
+    "routes": [
+      {
+        "path_Or_Subdomain": "/api",
+        "target_service_id": "cdd-control-plane",
+        "target_port": 8081
+      },
+      {
+        "path_Or_Subdomain": "/storage",
+        "target_service_id": "cdd-storage",
+        "target_port": 8085
+      },
+      {
+        "path_Or_Subdomain": "/docs",
+        "target_service_id": "cdd-docs-ui",
+        "target_port": 8082
+      },
+      {
+        "path_Or_Subdomain": "/",
+        "target_service_id": "cdd-web-ui",
+        "target_port": 8083
+      }
+    ]
+  },
   "directories": {
     "app_default": "[ProgramFiles64Folder][ProductName]",
     "data_default": "[CommonAppDataFolder][ProductName]\\data",
@@ -90,14 +180,16 @@
       "title": "CDD Core Microservices",
       "description": "Installs Control Plane, Gateway, Engine, Storage, and Publisher services.",
       "default": true,
-      "mandatory": true
+      "mandatory": true,
+      "component_dependencies": ["postgres", "valkey", "rust"]
     },
     {
       "id": "WebInterfaces",
       "title": "CDD Web & Documentation UIs",
       "description": "Installs the Angular Web Dashboard and API Documentation portal.",
       "default": true,
-      "mandatory": false
+      "mandatory": false,
+      "component_dependencies": ["nodejs", "nginx"]
     }
   ],
   "lifecycle_hooks": {

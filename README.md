@@ -90,14 +90,15 @@ sequenceDiagram
 ```
 
 The script performs the following operations:
-- **Dependency Provisioning:** Uses `libscript` (`install <pkg> latest` and `libscript.json`) to install core dependencies like Rust, Node.js, PostgreSQL, and Valkey/Redis.
+- **Dependency Provisioning:** Uses `libscript` (`install <pkg> latest` and `libscript.json`) to install core dependencies like Rust, Node.js, PostgreSQL, Valkey/Redis, and `wait4x`.
 - **Database Setup:** Automatically initializes the `cdd` PostgreSQL database.
 - **Service Compilation:** Iterates through all adjacent `cdd-*` repositories (e.g., `cdd-gateway`, `cdd-web-ui`, `cdd-control-plane`, `cdd-engine`, `cdd-storage`, `cdd-publisher`, `cdd-docs-ui`) and builds them in-place using `cargo` or `npm`.
-- **Infrastructure Packaging:** Exports the infrastructure into container and native installer formats via `libscript package-as` using `libscript.json` and `packaging.json`:
-  - `docker` / `docker_compose`
-  - Linux packages (`deb`, `rpm`, `apk_alpine`, `appimage`, `flatpak`, `snap`)
-  - Windows installers (`msi`, `exe`)
-  - macOS & BSD/Illumos packages (`pkg`, `dmg`, `bsd_pkg`, `ips`)
+- **Infrastructure Packaging:** Exports the infrastructure into container, native installer, and VM/cloud image formats via `libscript package-as` using `libscript.json` and `packaging.json`:
+  - Containers & Compose (`docker`, `dockerfile`, `docker_compose`, `docker-compose`, `docker-image`, `oci-image`)
+  - Linux & BSD packages (`deb`, `rpm`, `apk`, `txz`, `tui`)
+  - Windows installers (`msi`, `innosetup`, `nsis`)
+  - macOS packages (`pkg`, `dmg`)
+  - Bootable VM, hypervisor, and cloud images (`iso`, `raw-img`, `qcow2`, `vmdk`, `vdi`, `rootfs-tar`, `bsd-img`, `illumos-distro`, `freebsd-distro`, `unikernel`, `qemu-qcow2`, `vmware-vmdk`, `hyperv-vhd`, `hyperv-vhdx`, `proxmox-template`, `virtualbox-vdi`, `virtualbox-ova`, `xen-img`, `microvm-disk`, `aws-ami`, `azure-vhd`, `gcp-image`, `cloud-img`, `vagrant-box`, `disk-builder`)
 
 **Usage:**
 ```bash
@@ -130,10 +131,10 @@ For environments where containerization (Docker/Kubernetes) is not preferred or 
 The `scripts/deploy.sh` (or `scripts/deploy.cmd`) system utilizes `libscript`, `libscript.json`, and `packaging.json` to generate native installers.
 
 **Available Package Formats (`--target <format>`):**
-*   **Debian/Ubuntu (`deb`) & Enterprise Linux (`rpm`, `apk_alpine`):** Deploys the Rust binaries, configures `systemd`/`openrc` services, and sets up Nginx as the gateway.
-*   **Universal Linux Bundles (`appimage`, `flatpak`, `snap`):** Self-contained desktop and server application bundles.
-*   **Windows Installer (`msi` / `exe`):** Uses `packaging.json` (`upgrade_code`, `database_contracts`, `services`) to install the services as Windows Background Services via WiX / `msi-rs`.
-*   **macOS (`pkg`, `dmg`) & BSD/Illumos (`bsd_pkg`, `ips`):** Installs the binaries and configures `launchd`, `rc.d`, or `smf` daemons for background execution.
+*   **Debian/Ubuntu (`deb`), Enterprise Linux (`rpm`), Alpine (`apk`), & FreeBSD (`txz`):** Deploys the Rust binaries, configures `systemd`/`openrc`/`rc.d` services, and sets up Nginx as the gateway.
+*   **Windows Installers (`msi`, `innosetup`, `nsis`):** Uses `packaging.json` (`upgrade_code`, `database_contracts`, `services`, `ingress`) to install the services as Windows Background Services via WiX / `msi-rs`, InnoSetup, or NSIS.
+*   **macOS (`pkg`, `dmg`) & Interactive TUI (`tui`):** Installs the binaries and configures `launchd` daemons or portable interactive installers.
+*   **VM, Hypervisor & Cloud Images (`iso`, `qcow2`, `aws-ami`, `azure-vhd`, `gcp-image`, `vagrant-box`, etc.):** Synthesizes bootable disk and cloud machine images directly from `libscript.json`.
 
 **Benefits of Native Deployment:**
 *   **Lower Overhead:** Direct access to host resources without container virtualization overhead.
@@ -169,7 +170,7 @@ The test script performs the following:
 ```bash
 ./scripts/test.sh
 # or on Windows:
-.\scripts\test.cmd
+.\scripts	est.cmd
 ```
 
 The test definitions and Playwright configuration can be found in the `e2e/` directory.
@@ -211,7 +212,7 @@ The test definitions and Playwright configuration can be found in the `e2e/` dir
 
 Licensed under either of
 
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or <https://www.apache.org/licenses/LICENSE-2.0>)
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or <https://www.apache.org/licenses/Apache-2.0>)
 - MIT license ([LICENSE-MIT](LICENSE-MIT) or <https://opensource.org/licenses/MIT>)
 
 at your option.
