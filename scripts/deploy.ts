@@ -65,7 +65,7 @@ export const DEFAULT_PACKAGE_TARGETS: readonly PackageFormat[] = ['docker', 'doc
 export const DEFAULT_PACKAGING_METADATA: PackagingManifestSummary = {
   name: 'cdd',
   title: 'CDD Platform',
-  version: '0.0.1',
+  version: '0.0.5',
   publisher: 'CDD Open Source Project',
   upgrade_code: 'A7D43B82-6E19-4F0C-9B25-3C8A1D7E4F90',
 };

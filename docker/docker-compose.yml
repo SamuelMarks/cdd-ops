@@ -1,20 +1,135 @@
 # Docker Compose Configuration
 #
-# This file provides a basic definition for running the CDD platform
-# microservices (gateway, web-ui, control-plane, engine, and storage)
-# in a containerized environment.
+# Full containerized topology for running all 7 CDD platform microservices
+# (gateway, web-ui, docs-ui, control-plane, engine, publisher, and storage)
+# alongside PostgreSQL and Valkey with OAuth, PGP, WASM, and 13-registry support.
 
 services:
-  gateway:
-    image: nginx:alpine
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-cdd}
+      POSTGRES_HOST_AUTH_METHOD: trust
     ports:
-      - "80:80"
-  web-ui:
-    image: cdd-web-ui:latest
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  valkey:
+    image: valkey/valkey:9-alpine
+    ports:
+      - "6379:6379"
+
+  storage:
+    image: cdd-storage:latest
+    depends_on:
+      - postgres
+      - valkey
+    ports:
+      - "8085:8085"
+    environment:
+      CDD__DATABASE_URL: postgres://postgres@postgres:5432/cdd
+      CDD__REDIS_URL: redis://valkey:6379
+      CDD__STORAGE_SECRET_KEY: ${CDD__STORAGE_SECRET_KEY:-dev-secret-key}
+      PORT: "8085"
+
   control-plane:
     image: cdd-control-plane:latest
+    depends_on:
+      - postgres
+      - valkey
+      - storage
+    ports:
+      - "8081:8081"
+    environment:
+      CDD__DATABASE_URL: postgres://postgres@postgres:5432/cdd
+      CDD__REDIS_URL: redis://valkey:6379
+      CDD__SERVER_BIND: "0.0.0.0:8081"
+      CDD__GOOGLE_CLIENT_ID: ${CDD__GOOGLE_CLIENT_ID:-dev-google-client-id}
+      CDD__GOOGLE_CLIENT_SECRET: ${CDD__GOOGLE_CLIENT_SECRET:-dev-google-client-secret}
+      CDD__GOOGLE_OAUTH_URL: ${CDD__GOOGLE_OAUTH_URL:-https://oauth2.googleapis.com/token}
+      CDD__GOOGLE_USERINFO_URL: ${CDD__GOOGLE_USERINFO_URL:-https://www.googleapis.com/oauth2/v3/userinfo}
+      CDD__GITHUB_CLIENT_ID: ${CDD__GITHUB_CLIENT_ID:-dev-github-client-id}
+      CDD__GITHUB_CLIENT_SECRET: ${CDD__GITHUB_CLIENT_SECRET:-dev-github-client-secret}
+      GITHUB_ORG_NAME: ${GITHUB_ORG_NAME:-offscale}
+      CDD__STORAGE_URL: http://storage:8085
+      CDD__STORAGE_SECRET_KEY: ${CDD__STORAGE_SECRET_KEY:-dev-secret-key}
+
   engine:
     image: cdd-engine:latest
-  storage:
-    image: minio/minio
-    command: server /data
+    depends_on:
+      - postgres
+      - valkey
+      - control-plane
+      - storage
+    environment:
+      CDD__DATABASE_URL: postgres://postgres@postgres:5432/cdd
+      CDD__REDIS_URL: redis://valkey:6379
+      CDD__WASM_DIR: /opt/cdd/wasm
+      CDD__STORAGE_URL: http://storage:8085
+      CDD__STORAGE_SECRET_KEY: ${CDD__STORAGE_SECRET_KEY:-dev-secret-key}
+    volumes:
+      - ../../cdd-web-ui/public/wasm:/opt/cdd/wasm:ro
+
+  publisher:
+    image: cdd-publisher:latest
+    depends_on:
+      - postgres
+      - valkey
+      - storage
+    environment:
+      CDD__DATABASE_URL: postgres://postgres@postgres:5432/cdd
+      CDD__REDIS_URL: redis://valkey:6379
+      CDD__STORAGE_URL: http://storage:8085
+      CDD__STORAGE_SECRET_KEY: ${CDD__STORAGE_SECRET_KEY:-dev-secret-key}
+      CDD__PGP_KEY_ID: ${CDD__PGP_KEY_ID:-CDD-DEV-PGP-KEY}
+      CDD__PGP_PASSPHRASE: ${CDD__PGP_PASSPHRASE:-dev-pgp-passphrase}
+      GITHUB_ORG_NAME: ${GITHUB_ORG_NAME:-offscale}
+
+  docs-ui:
+    image: cdd-docs-ui:latest
+    depends_on:
+      - storage
+    ports:
+      - "8082:8082"
+    environment:
+      PORT: "8082"
+      CDD__STORAGE_URL: http://storage:8085
+
+  web-ui:
+    image: cdd-web-ui:latest
+    ports:
+      - "8083:8083"
+    environment:
+      PORT: "8083"
+      CDD__WASM_DIR: /opt/cdd/wasm
+    volumes:
+      - ../../cdd-web-ui/public/wasm:/opt/cdd/wasm:ro
+
+  gateway:
+    image: cdd-gateway:latest
+    depends_on:
+      - control-plane
+      - storage
+      - docs-ui
+      - web-ui
+    ports:
+      - "80:8086"
+      - "8086:8086"
+    environment:
+      CDD__DATABASE_URL: postgres://postgres@postgres:5432/cdd
+      CDD__REDIS_URL: redis://valkey:6379
+      CDD__SERVER_BIND: "0.0.0.0:8086"
+      CDD__GOOGLE_CLIENT_ID: ${CDD__GOOGLE_CLIENT_ID:-dev-google-client-id}
+      CDD__GOOGLE_CLIENT_SECRET: ${CDD__GOOGLE_CLIENT_SECRET:-dev-google-client-secret}
+      CDD__GOOGLE_OAUTH_URL: ${CDD__GOOGLE_OAUTH_URL:-https://oauth2.googleapis.com/token}
+      CDD__GOOGLE_USERINFO_URL: ${CDD__GOOGLE_USERINFO_URL:-https://www.googleapis.com/oauth2/v3/userinfo}
+      CDD__GITHUB_CLIENT_ID: ${CDD__GITHUB_CLIENT_ID:-dev-github-client-id}
+      CDD__GITHUB_CLIENT_SECRET: ${CDD__GITHUB_CLIENT_SECRET:-dev-github-client-secret}
+      GITHUB_ORG_NAME: ${GITHUB_ORG_NAME:-offscale}
+      CDD__STORAGE_URL: http://storage:8085
+      CDD__STORAGE_SECRET_KEY: ${CDD__STORAGE_SECRET_KEY:-dev-secret-key}

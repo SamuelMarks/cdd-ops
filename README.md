@@ -100,21 +100,28 @@ The script performs the following operations:
   - macOS packages (`pkg`, `dmg`)
   - Bootable VM, hypervisor, and cloud images (`iso`, `raw-img`, `qcow2`, `vmdk`, `vdi`, `rootfs-tar`, `bsd-img`, `illumos-distro`, `freebsd-distro`, `unikernel`, `qemu-qcow2`, `vmware-vmdk`, `hyperv-vhd`, `hyperv-vhdx`, `proxmox-template`, `virtualbox-vdi`, `virtualbox-ova`, `xen-img`, `microvm-disk`, `aws-ami`, `azure-vhd`, `gcp-image`, `cloud-img`, `vagrant-box`, `disk-builder`)
 
-**Usage:**
-```bash
+**Usage (POSIX `/bin/sh`):**
+```sh
 ./scripts/deploy.sh
-# or on Windows:
-.\scripts\deploy.cmd
+```
+
+**Usage (Windows `.cmd`):**
+```cmd
+scripts\deploy.cmd
 ```
 
 ### 2. Docker Compose (Containerized Local Development)
 
 For a streamlined local experience without building from source manually, you can use the pre-configured Docker Compose setup.
 
-**Usage:**
-```bash
-cd docker
-docker-compose up -d
+**Usage (POSIX `/bin/sh`):**
+```sh
+cd docker && docker compose up -d
+```
+
+**Usage (Windows `.cmd`):**
+```cmd
+cd /d docker && docker compose up -d
 ```
 For more details, see the [Docker Compose Guide](docker/README.md).
 
@@ -147,11 +154,15 @@ The `scripts/deploy.sh` (or `scripts/deploy.cmd`) system utilizes `libscript`, `
 3.  **CDD Services:** Installed via `.deb` or `.msi`. Each service (`cdd-control-plane`, `cdd-engine`, etc.) runs as a dedicated system user (e.g., `cdd-user`) with a corresponding OS service file ensuring automatic restarts and proper privilege isolation.
 
 To generate the native packages, run the build script with one or more `--target` packaging flags:
-```bash
-# Example: Build Debian and Windows MSI packages
+
+**POSIX (`/bin/sh`):**
+```sh
 ./scripts/deploy.sh --target deb --target msi
-# or on Windows:
-.\scripts\deploy.cmd --target msi
+```
+
+**Windows (`.cmd`):**
+```cmd
+scripts\deploy.cmd --target msi
 ```
 
 ## Testing
@@ -166,11 +177,14 @@ The test script performs the following:
 - Installs NPM dependencies for the E2E framework.
 - Executes the Playwright test suite against the local deployment (`http://localhost`).
 
-**Running the Tests:**
-```bash
+**Running the Tests (POSIX `/bin/sh`):**
+```sh
 ./scripts/test.sh
-# or on Windows:
-.\scripts	est.cmd
+```
+
+**Running the Tests (Windows `.cmd`):**
+```cmd
+scripts\test.cmd
 ```
 
 The test definitions and Playwright configuration can be found in the `e2e/` directory.

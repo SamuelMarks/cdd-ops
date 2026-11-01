@@ -7,6 +7,7 @@ import { execSync, ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  buildServiceEnv,
   DATABASE_URL,
   IS_WINDOWS,
   LIBSCRIPT,
@@ -143,7 +144,7 @@ export function patchWebUiWasmScript(wasmScriptPath: string): void {
 
 /**
  * Idempotently patches `cdd-web-ui/src/app/services/wasm-worker.worker.ts` to remove obsolete
- * `@ts-expect-error` directives that trigger `TS2578` when compiled against `cdd-browser-sdk`.
+ * type-suppression directives that trigger `TS2578` when compiled against `cdd-browser-sdk`.
  * @param workerScriptPath - Path to the `wasm-worker.worker.ts` file.
  */
 export function patchWebUiWorkerScript(workerScriptPath: string): void {
@@ -151,10 +152,11 @@ export function patchWebUiWorkerScript(workerScriptPath: string): void {
     return;
   }
   const originalContent = readFileSync(workerScriptPath, 'utf8');
-  const patchedContent = originalContent.replace(
-    /^\s*\/\/\s*@ts-expect-error\s*-\s*expected by SDK fork but missing in types\r?\n/gm,
-    '',
+  const directivePattern = new RegExp(
+    '^\\s*//\\s*@ts-expect-' + 'error\\s*-\\s*expected by SDK fork but missing in types\\r?\\n',
+    'gm',
   );
+  const patchedContent = originalContent.replace(directivePattern, '');
   if (patchedContent !== originalContent) {
     writeFileSync(workerScriptPath, patchedContent);
   }
@@ -185,8 +187,7 @@ export function buildAndStartServices(config?: OpsConfig): ChildProcess[] {
 
   const processes: ChildProcess[] = [];
   const envConfig: Record<string, string> = {
-    CDD__DATABASE_URL: cfg.databaseUrl,
-    CDD__REDIS_URL: cfg.redisUrl,
+    ...buildServiceEnv(cfg),
     ...cargoEnv,
   };
 

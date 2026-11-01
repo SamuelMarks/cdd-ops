@@ -113,12 +113,11 @@ export function getOrBuildRustService(
       try {
         execSync(`tar -xf "${dlPath}" -C "${tempDir}"`);
         rmSync(dlPath, { force: true });
-        if (!existsSync(finalBinPath)) {
-          const files = readdirSync(tempDir);
-          const matchedFile = findExtractedBinary(tempDir, files, archiveType);
-          if (matchedFile !== undefined) {
-            renameSync(join(tempDir, matchedFile), finalBinPath);
-          }
+        const files = readdirSync(tempDir);
+        const matchedFile = findExtractedBinary(tempDir, files, archiveType);
+        if (matchedFile !== undefined) {
+          rmSync(finalBinPath, { force: true });
+          renameSync(join(tempDir, matchedFile), finalBinPath);
         }
       } finally {
         rmSync(tempDir, { recursive: true, force: true });

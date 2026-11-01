@@ -11,7 +11,7 @@ export default defineConfig({
   forbidOnly: Boolean(process.env['CI']),
   retries: process.env['CI'] ? 2 : 0,
   ...(process.env['CI'] ? { workers: 1 } : {}),
-  reporter: 'html',
+  reporter: [['html', { open: 'never' }]],
   use: {
     baseURL: process.env['BASE_URL'] || 'http://localhost',
     trace: 'on-first-retry',

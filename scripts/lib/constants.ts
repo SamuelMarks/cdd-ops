@@ -5,7 +5,25 @@
 
 import { platform } from 'node:os';
 import { resolve } from 'node:path';
-import { OpsConfig } from './types';
+import {
+  CDD_COMPILER_REPOS,
+  CDD_DOC_HOSTING_TARGETS,
+  CDD_REGISTRY_TYPES,
+  CDD_SPEC_FORMATS,
+  CDD_TARGET_LANGUAGES,
+  CDD_WASM_ARTIFACTS,
+  CddTargetLanguage,
+  OpsConfig,
+} from './types';
+
+export {
+  CDD_COMPILER_REPOS,
+  CDD_DOC_HOSTING_TARGETS,
+  CDD_REGISTRY_TYPES,
+  CDD_SPEC_FORMATS,
+  CDD_TARGET_LANGUAGES,
+  CDD_WASM_ARTIFACTS,
+};
 
 /**
  * Root directory of the `cdd-ops` repository.
@@ -16,6 +34,11 @@ export const REPO_ROOT = resolve(__dirname, '..', '..');
  * Parent directory containing `cdd-ops` and sibling `cdd-*` repositories.
  */
 export const PARENT_DIR = resolve(REPO_ROOT, '..');
+
+/**
+ * Default directory containing compiled `.wasm` compiler artifacts (`cdd-cpp.wasm` and all 13 `cdd-<lang>.wasm`).
+ */
+export const DEFAULT_WASM_DIR = resolve(PARENT_DIR, 'cdd-web-ui', 'public', 'wasm');
 
 /**
  * Absolute path to the POSIX `libscript.sh` entrypoint.
@@ -37,6 +60,34 @@ export function selectLibscript(isWindows: boolean): string {
 }
 
 /**
+ * Resolves the expected monorepo name (`${orgName}-sdk`) for a given GitHub organization.
+ * @param orgName - The GitHub organization name.
+ * @returns The formatted monorepo name.
+ */
+export function formatSdkMonorepoName(orgName: string): string {
+  return `${orgName}-sdk`;
+}
+
+/**
+ * Resolves the expected polyrepo name (`${orgName}-sdk-${language}`) for a given GitHub organization and target language.
+ * @param orgName - The GitHub organization name.
+ * @param language - The target CDD language identifier.
+ * @returns The formatted language-specific repository name.
+ */
+export function formatSdkPolyrepoName(orgName: string, language: CddTargetLanguage): string {
+  return `${orgName}-sdk-${language}`;
+}
+
+/**
+ * Resolves all 13 expected polyrepo names (`${orgName}-sdk-${language}`) for a given GitHub organization.
+ * @param orgName - The GitHub organization name.
+ * @returns Immutable array of 13 language-specific repository names.
+ */
+export function formatAllSdkPolyrepoNames(orgName: string): readonly string[] {
+  return CDD_TARGET_LANGUAGES.map((lang) => formatSdkPolyrepoName(orgName, lang));
+}
+
+/**
  * Resolves a complete, immutable {@link OpsConfig} from environment variables and OS metadata.
  * @param env - Environment variables map (defaults to `process.env`).
  * @param osPlatform - Operating system platform (defaults to `platform()`).
@@ -54,6 +105,18 @@ export function resolveConfig(
   const pgUser = env['POSTGRES_USER'] || 'postgres';
   const valkeyHost = env['VALKEY_HOST'] || 'localhost';
   const valkeyPort = env['VALKEY_PORT'] || '6379';
+  const googleClientId = env['CDD__GOOGLE_CLIENT_ID'] || 'dev-google-client-id';
+  const googleClientSecret = env['CDD__GOOGLE_CLIENT_SECRET'] || 'dev-google-client-secret';
+  const googleOauthUrl =
+    env['CDD__GOOGLE_OAUTH_URL'] || 'https://oauth2.googleapis.com/token';
+  const googleUserinfoUrl =
+    env['CDD__GOOGLE_USERINFO_URL'] || 'https://www.googleapis.com/oauth2/v3/userinfo';
+  const githubClientId = env['CDD__GITHUB_CLIENT_ID'] || 'dev-github-client-id';
+  const githubClientSecret = env['CDD__GITHUB_CLIENT_SECRET'] || 'dev-github-client-secret';
+  const githubOrgName = env['GITHUB_ORG_NAME'] || 'offscale';
+  const storageSecretKey = env['CDD__STORAGE_SECRET_KEY'] || 'dev-secret-key';
+  const pgpKeyId = env['CDD__PGP_KEY_ID'] || 'CDD-DEV-PGP-KEY';
+  const wasmDir = env['CDD__WASM_DIR'] || DEFAULT_WASM_DIR;
   const githubToken = env['GITHUB_TOKEN'];
 
   return {
@@ -70,10 +133,42 @@ export function resolveConfig(
     valkeyPort,
     databaseUrl: `postgres://${pgUser}@${pgHost}:${pgPort}/cdd`,
     redisUrl: `redis://${valkeyHost}:${valkeyPort}`,
+    googleClientId,
+    googleClientSecret,
+    googleOauthUrl,
+    googleUserinfoUrl,
+    githubClientId,
+    githubClientSecret,
+    githubOrgName,
+    storageSecretKey,
+    pgpKeyId,
+    wasmDir,
     ...(githubToken !== undefined ? { githubToken } : {}),
     isGithubActions: Boolean(env['GITHUB_ACTIONS']),
     osPlatform,
     arch,
+  };
+}
+
+/**
+ * Builds the shared service environment variable dictionary forwarded to CDD backend microservices.
+ * @param cfg - Active {@link OpsConfig} runtime configuration.
+ * @returns Record of environment variable key-value pairs.
+ */
+export function buildServiceEnv(cfg: OpsConfig): Record<string, string> {
+  return {
+    CDD__DATABASE_URL: cfg.databaseUrl,
+    CDD__REDIS_URL: cfg.redisUrl,
+    CDD__GOOGLE_CLIENT_ID: cfg.googleClientId,
+    CDD__GOOGLE_CLIENT_SECRET: cfg.googleClientSecret,
+    CDD__GOOGLE_OAUTH_URL: cfg.googleOauthUrl,
+    CDD__GOOGLE_USERINFO_URL: cfg.googleUserinfoUrl,
+    CDD__GITHUB_CLIENT_ID: cfg.githubClientId,
+    CDD__GITHUB_CLIENT_SECRET: cfg.githubClientSecret,
+    GITHUB_ORG_NAME: cfg.githubOrgName,
+    CDD__STORAGE_SECRET_KEY: cfg.storageSecretKey,
+    CDD__PGP_KEY_ID: cfg.pgpKeyId,
+    CDD__WASM_DIR: cfg.wasmDir,
   };
 }
 

@@ -15,7 +15,7 @@ export default tseslint.config(
     plugins: {
       jsdoc,
     },
-    files: ['scripts/**/*.ts', 'e2e/**/*.ts', 'vitest.config.ts'],
+    files: ['scripts/**/*.ts', 'e2e/**/*.ts', 'vitest.config.ts', 'eslint.config.mjs'],
     rules: {
       'jsdoc/require-file-overview': 'error',
       'jsdoc/require-jsdoc': [
@@ -36,6 +36,8 @@ export default tseslint.config(
             'TSEnumDeclaration',
             'PropertyDefinition',
             'TSPropertySignature',
+            'VariableDeclarator > ArrowFunctionExpression',
+            'VariableDeclarator > FunctionExpression',
             'ExportNamedDeclaration:has(VariableDeclaration)',
           ],
         },
@@ -48,6 +50,7 @@ export default tseslint.config(
       'jsdoc/require-returns-type': 'off',
       'jsdoc/require-description': 'error',
       '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/ban-ts-comment': 'error',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       'no-empty': 'error',
     },

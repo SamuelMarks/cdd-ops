@@ -4,6 +4,244 @@
  */
 
 /**
+ * Supported target languages across the 13 `cdd-*` language compilers.
+ */
+export type CddTargetLanguage =
+  | 'c'
+  | 'cpp'
+  | 'csharp'
+  | 'go'
+  | 'java'
+  | 'kotlin'
+  | 'php'
+  | 'python'
+  | 'ruby'
+  | 'rust'
+  | 'sh'
+  | 'swift'
+  | 'ts';
+
+/**
+ * Immutable list of all 13 supported {@link CddTargetLanguage} identifiers.
+ */
+export const CDD_TARGET_LANGUAGES: readonly CddTargetLanguage[] = [
+  'c',
+  'cpp',
+  'csharp',
+  'go',
+  'java',
+  'kotlin',
+  'php',
+  'python',
+  'ruby',
+  'rust',
+  'sh',
+  'swift',
+  'ts',
+];
+
+/**
+ * Checks whether an unknown value is a valid {@link CddTargetLanguage}.
+ * @param value - The unknown value to inspect.
+ * @returns True if the value is a valid {@link CddTargetLanguage}.
+ */
+export function isCddTargetLanguage(value: unknown): value is CddTargetLanguage {
+  return typeof value === 'string' && (CDD_TARGET_LANGUAGES as readonly string[]).includes(value);
+}
+
+/**
+ * Repository names for the 13 `cdd-*` language compilers.
+ */
+export type CddCompilerRepo =
+  | 'cdd-c'
+  | 'cdd-cpp'
+  | 'cdd-csharp'
+  | 'cdd-go'
+  | 'cdd-java'
+  | 'cdd-kotlin'
+  | 'cdd-php'
+  | 'cdd-python-all'
+  | 'cdd-ruby'
+  | 'cdd-rust'
+  | 'cdd-sh'
+  | 'cdd-swift'
+  | 'cdd-ts';
+
+/**
+ * Immutable list of all 13 {@link CddCompilerRepo} repository names.
+ */
+export const CDD_COMPILER_REPOS: readonly CddCompilerRepo[] = [
+  'cdd-c',
+  'cdd-cpp',
+  'cdd-csharp',
+  'cdd-go',
+  'cdd-java',
+  'cdd-kotlin',
+  'cdd-php',
+  'cdd-python-all',
+  'cdd-ruby',
+  'cdd-rust',
+  'cdd-sh',
+  'cdd-swift',
+  'cdd-ts',
+];
+
+/**
+ * WebAssembly artifact filenames for the 13 `cdd-*` language compilers.
+ */
+export type CddWasmArtifact =
+  | 'cdd-c.wasm'
+  | 'cdd-cpp.wasm'
+  | 'cdd-csharp.wasm'
+  | 'cdd-go.wasm'
+  | 'cdd-java.wasm'
+  | 'cdd-kotlin.wasm'
+  | 'cdd-php.wasm'
+  | 'cdd-python-all.wasm'
+  | 'cdd-ruby.wasm'
+  | 'cdd-rust.wasm'
+  | 'cdd-sh.wasm'
+  | 'cdd-swift.wasm'
+  | 'cdd-ts.wasm';
+
+/**
+ * Immutable list of all 13 {@link CddWasmArtifact} filenames.
+ */
+export const CDD_WASM_ARTIFACTS: readonly CddWasmArtifact[] = [
+  'cdd-c.wasm',
+  'cdd-cpp.wasm',
+  'cdd-csharp.wasm',
+  'cdd-go.wasm',
+  'cdd-java.wasm',
+  'cdd-kotlin.wasm',
+  'cdd-php.wasm',
+  'cdd-python-all.wasm',
+  'cdd-ruby.wasm',
+  'cdd-rust.wasm',
+  'cdd-sh.wasm',
+  'cdd-swift.wasm',
+  'cdd-ts.wasm',
+];
+
+/**
+ * Supported API specification input formats across the CDD platform.
+ */
+export type CddSpecFormat =
+  | 'swagger_2_0'
+  | 'openapi_3_0'
+  | 'openapi_3_1'
+  | 'openapi_3_2'
+  | 'arazzo_1_1'
+  | 'google_discovery_v1';
+
+/**
+ * Immutable list of all supported {@link CddSpecFormat} identifiers.
+ */
+export const CDD_SPEC_FORMATS: readonly CddSpecFormat[] = [
+  'swagger_2_0',
+  'openapi_3_0',
+  'openapi_3_1',
+  'openapi_3_2',
+  'arazzo_1_1',
+  'google_discovery_v1',
+];
+
+/**
+ * Checks whether an unknown value is a valid {@link CddSpecFormat}.
+ * @param value - The unknown value to inspect.
+ * @returns True if the value is a valid {@link CddSpecFormat}.
+ */
+export function isCddSpecFormat(value: unknown): value is CddSpecFormat {
+  return typeof value === 'string' && (CDD_SPEC_FORMATS as readonly string[]).includes(value);
+}
+
+/**
+ * Supported package registries and app stores for `cdd-publisher` releases.
+ */
+export type CddRegistryType =
+  | 'crates-io'
+  | 'npm'
+  | 'pypi'
+  | 'maven'
+  | 'gradle'
+  | 'nuget'
+  | 'rubygems'
+  | 'packagist'
+  | 'go-proxy'
+  | 'swift-registry'
+  | 'conan'
+  | 'vcpkg'
+  | 'homebrew'
+  | 'apk'
+  | 'deb'
+  | 'rpm'
+  | 'pkg';
+
+/**
+ * Immutable list of all supported {@link CddRegistryType} package registry targets.
+ */
+export const CDD_REGISTRY_TYPES: readonly CddRegistryType[] = [
+  'crates-io',
+  'npm',
+  'pypi',
+  'maven',
+  'gradle',
+  'nuget',
+  'rubygems',
+  'packagist',
+  'go-proxy',
+  'swift-registry',
+  'conan',
+  'vcpkg',
+  'homebrew',
+  'apk',
+  'deb',
+  'rpm',
+  'pkg',
+];
+
+/**
+ * Checks whether an unknown value is a valid {@link CddRegistryType}.
+ * @param value - The unknown value to inspect.
+ * @returns True if the value is a valid {@link CddRegistryType}.
+ */
+export function isCddRegistryType(value: unknown): value is CddRegistryType {
+  return typeof value === 'string' && (CDD_REGISTRY_TYPES as readonly string[]).includes(value);
+}
+
+/**
+ * Supported documentation hosting targets for generated HTML API documentation.
+ */
+export type CddDocHostingTarget =
+  | 'cdd-docs-ui'
+  | 'github-pages'
+  | 'readthedocs'
+  | 'docs-rs'
+  | 'pkg-go-dev'
+  | 'javadoc-io';
+
+/**
+ * Immutable list of all supported {@link CddDocHostingTarget} documentation hosting targets.
+ */
+export const CDD_DOC_HOSTING_TARGETS: readonly CddDocHostingTarget[] = [
+  'cdd-docs-ui',
+  'github-pages',
+  'readthedocs',
+  'docs-rs',
+  'pkg-go-dev',
+  'javadoc-io',
+];
+
+/**
+ * Checks whether an unknown value is a valid {@link CddDocHostingTarget}.
+ * @param value - The unknown value to inspect.
+ * @returns True if the value is a valid {@link CddDocHostingTarget}.
+ */
+export function isCddDocHostingTarget(value: unknown): value is CddDocHostingTarget {
+  return typeof value === 'string' && (CDD_DOC_HOSTING_TARGETS as readonly string[]).includes(value);
+}
+
+/**
  * Represents a single downloadable release asset from the GitHub Releases API.
  */
 export interface GitHubReleaseAsset {
@@ -51,6 +289,26 @@ export interface OpsConfig {
   readonly databaseUrl: string;
   /** Full Redis/Valkey connection string. */
   readonly redisUrl: string;
+  /** Google OAuth 2.0 Client ID (`CDD__GOOGLE_CLIENT_ID`). */
+  readonly googleClientId: string;
+  /** Google OAuth 2.0 Client Secret (`CDD__GOOGLE_CLIENT_SECRET`). */
+  readonly googleClientSecret: string;
+  /** Google OAuth 2.0 Token/Authorization URL (`CDD__GOOGLE_OAUTH_URL`). */
+  readonly googleOauthUrl: string;
+  /** Google OAuth 2.0 UserInfo endpoint URL (`CDD__GOOGLE_USERINFO_URL`). */
+  readonly googleUserinfoUrl: string;
+  /** GitHub OAuth 2.0 Client ID (`CDD__GITHUB_CLIENT_ID`). */
+  readonly githubClientId: string;
+  /** GitHub OAuth 2.0 Client Secret (`CDD__GITHUB_CLIENT_SECRET`). */
+  readonly githubClientSecret: string;
+  /** Target GitHub organization name (`GITHUB_ORG_NAME`) for SDK repository provisioning. */
+  readonly githubOrgName: string;
+  /** Shared secret key for `cdd-storage` S3/object storage authentication. */
+  readonly storageSecretKey: string;
+  /** PGP key identifier (`CDD__PGP_KEY_ID`) used by `cdd-publisher` to sign artifacts. */
+  readonly pgpKeyId: string;
+  /** Directory containing `cdd-cpp.wasm` and all 13 `cdd-<lang>.wasm` compiler artifacts. */
+  readonly wasmDir: string;
   /** Optional GitHub API personal access token for authenticated release queries. */
   readonly githubToken?: string;
   /** True when executing inside a GitHub Actions runner environment. */
@@ -117,7 +375,7 @@ export interface PackagingManifestSummary {
   readonly name: string;
   /** Human-readable product title (e.g., `'Compiler Driven Development (CDD) Platform'`). */
   readonly title: string;
-  /** Semantic version string (e.g., `'0.0.1'`). */
+  /** Semantic version string (e.g., `'0.0.5'`). */
   readonly version: string;
   /** Publisher or organization name (e.g., `'CDD Open Source Project'`). */
   readonly publisher: string;

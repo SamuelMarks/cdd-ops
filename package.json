@@ -1,6 +1,6 @@
 {
   "name": "cdd-ops",
-  "version": "0.0.1",
+  "version": "0.0.5",
   "description": "CDD Platform Operations (cdd-ops): Infrastructure, orchestration, and E2E testing for Compiler Driven Development.",
   "directories": {
     "doc": "docs"

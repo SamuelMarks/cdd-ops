@@ -9,15 +9,37 @@ import * as fs from 'node:fs';
 import { Stats } from 'node:fs';
 import { join } from 'node:path';
 import * as deploy from './deploy';
-import { resolveConfig, selectLibscript, LIBSCRIPT_CMD, LIBSCRIPT_SH, REPO_ROOT, PARENT_DIR } from './lib/constants';
+import {
+  buildServiceEnv,
+  CDD_COMPILER_REPOS,
+  CDD_DOC_HOSTING_TARGETS,
+  CDD_REGISTRY_TYPES,
+  CDD_SPEC_FORMATS,
+  CDD_TARGET_LANGUAGES,
+  CDD_WASM_ARTIFACTS,
+  DEFAULT_WASM_DIR,
+  formatAllSdkPolyrepoNames,
+  formatSdkMonorepoName,
+  formatSdkPolyrepoName,
+  LIBSCRIPT_CMD,
+  LIBSCRIPT_SH,
+  PARENT_DIR,
+  REPO_ROOT,
+  resolveConfig,
+  selectLibscript,
+} from './lib/constants';
 import { resolveTargetTriplet, findExtractedBinary, getOrBuildRustService } from './lib/rust-service';
 import {
+  formatError,
+  isCddDocHostingTarget,
+  isCddRegistryType,
+  isCddSpecFormat,
+  isCddTargetLanguage,
   isGitHubRelease,
   isGitHubReleaseAsset,
   isPackageFormat,
-  PACKAGE_FORMATS,
-  formatError,
   OpsConfig,
+  PACKAGE_FORMATS,
 } from './lib/types';
 import {
   provisionValkeyOrRedis,
@@ -113,6 +135,40 @@ describe('scripts/lib/types.ts & scripts/lib/constants.ts', () => {
     expect(isPackageFormat('ips')).toBe(false);
     expect(isPackageFormat(123)).toBe(false);
     expect(isPackageFormat(null)).toBe(false);
+
+    expect(CDD_TARGET_LANGUAGES).toHaveLength(13);
+    expect(CDD_COMPILER_REPOS).toHaveLength(13);
+    expect(CDD_WASM_ARTIFACTS).toHaveLength(13);
+    for (const lang of CDD_TARGET_LANGUAGES) {
+      expect(isCddTargetLanguage(lang)).toBe(true);
+    }
+    expect(isCddTargetLanguage('fortran')).toBe(false);
+    expect(isCddTargetLanguage(42)).toBe(false);
+
+    for (const spec of CDD_SPEC_FORMATS) {
+      expect(isCddSpecFormat(spec)).toBe(true);
+    }
+    expect(isCddSpecFormat('wsdl')).toBe(false);
+    expect(isCddSpecFormat(null)).toBe(false);
+
+    for (const reg of CDD_REGISTRY_TYPES) {
+      expect(isCddRegistryType(reg)).toBe(true);
+    }
+    expect(isCddRegistryType('unknown-reg')).toBe(false);
+    expect(isCddRegistryType(undefined)).toBe(false);
+
+    for (const docHost of CDD_DOC_HOSTING_TARGETS) {
+      expect(isCddDocHostingTarget(docHost)).toBe(true);
+    }
+    expect(isCddDocHostingTarget('confluence')).toBe(false);
+    expect(isCddDocHostingTarget(false)).toBe(false);
+
+    expect(formatSdkMonorepoName('my-org')).toBe('my-org-sdk');
+    expect(formatSdkPolyrepoName('my-org', 'rust')).toBe('my-org-sdk-rust');
+    const polyrepos = formatAllSdkPolyrepoNames('my-org');
+    expect(polyrepos).toHaveLength(13);
+    expect(polyrepos).toContain('my-org-sdk-ts');
+    expect(polyrepos).toContain('my-org-sdk-sh');
   });
 
   it('validates libscript.json and packaging.json structural contracts', () => {
@@ -120,9 +176,18 @@ describe('scripts/lib/types.ts & scripts/lib/constants.ts', () => {
     expect(libscriptManifest.name).toBe('cdd');
     expect(libscriptManifest.deps).toHaveProperty('rust', 'latest');
     expect(libscriptManifest.deps).toHaveProperty('wait4x', 'latest');
+    expect(libscriptManifest.vars).toHaveProperty('GITHUB_ORG_NAME', 'offscale');
     expect(libscriptManifest.frontends).toHaveLength(2);
     expect(libscriptManifest.databases).toHaveLength(2);
     expect(libscriptManifest.services).toHaveLength(7);
+
+    const cpService = libscriptManifest.services.find((s) => s.name === 'cdd-control-plane');
+    expect(cpService?.env).toHaveProperty('CDD__GOOGLE_CLIENT_ID');
+    expect(cpService?.env).toHaveProperty('CDD__GITHUB_CLIENT_ID');
+    const engineService = libscriptManifest.services.find((s) => s.name === 'cdd-engine');
+    expect(engineService?.env).toHaveProperty('CDD__WASM_DIR');
+    const publisherService = libscriptManifest.services.find((s) => s.name === 'cdd-publisher');
+    expect(publisherService?.env).toHaveProperty('CDD__PGP_KEY_ID');
 
     expect(packagingManifest.$schema).toBe('../libscript/packaging/packaging.schema.json');
     expect(packagingManifest.name).toBe('cdd');
@@ -176,6 +241,16 @@ describe('scripts/lib/types.ts & scripts/lib/constants.ts', () => {
     expect(defaultCfg.isGithubActions).toBe(false);
     expect(defaultCfg.repoRoot).toBe(REPO_ROOT);
     expect(defaultCfg.parentDir).toBe(PARENT_DIR);
+    expect(defaultCfg.googleClientId).toBe('dev-google-client-id');
+    expect(defaultCfg.googleClientSecret).toBe('dev-google-client-secret');
+    expect(defaultCfg.googleOauthUrl).toBe('https://oauth2.googleapis.com/token');
+    expect(defaultCfg.googleUserinfoUrl).toBe('https://www.googleapis.com/oauth2/v3/userinfo');
+    expect(defaultCfg.githubClientId).toBe('dev-github-client-id');
+    expect(defaultCfg.githubClientSecret).toBe('dev-github-client-secret');
+    expect(defaultCfg.githubOrgName).toBe('offscale');
+    expect(defaultCfg.storageSecretKey).toBe('dev-secret-key');
+    expect(defaultCfg.pgpKeyId).toBe('CDD-DEV-PGP-KEY');
+    expect(defaultCfg.wasmDir).toBe(DEFAULT_WASM_DIR);
 
     const winCfg = resolveConfig(
       {
@@ -184,6 +259,16 @@ describe('scripts/lib/types.ts & scripts/lib/constants.ts', () => {
         POSTGRES_USER: 'admin',
         VALKEY_HOST: 'cache.internal',
         VALKEY_PORT: '6380',
+        CDD__GOOGLE_CLIENT_ID: 'goog_id',
+        CDD__GOOGLE_CLIENT_SECRET: 'goog_sec',
+        CDD__GOOGLE_OAUTH_URL: 'https://auth.internal/token',
+        CDD__GOOGLE_USERINFO_URL: 'https://auth.internal/userinfo',
+        CDD__GITHUB_CLIENT_ID: 'gh_id',
+        CDD__GITHUB_CLIENT_SECRET: 'gh_sec',
+        GITHUB_ORG_NAME: 'custom-org',
+        CDD__STORAGE_SECRET_KEY: 's3_secret',
+        CDD__PGP_KEY_ID: 'PGP-999',
+        CDD__WASM_DIR: '/custom/wasm',
         GITHUB_TOKEN: 'ghp_secret',
         GITHUB_ACTIONS: 'true',
       },
@@ -199,8 +284,26 @@ describe('scripts/lib/types.ts & scripts/lib/constants.ts', () => {
     expect(winCfg.valkeyPort).toBe('6380');
     expect(winCfg.databaseUrl).toBe('postgres://admin@db.internal:5433/cdd');
     expect(winCfg.redisUrl).toBe('redis://cache.internal:6380');
+    expect(winCfg.googleClientId).toBe('goog_id');
+    expect(winCfg.googleClientSecret).toBe('goog_sec');
+    expect(winCfg.googleOauthUrl).toBe('https://auth.internal/token');
+    expect(winCfg.googleUserinfoUrl).toBe('https://auth.internal/userinfo');
+    expect(winCfg.githubClientId).toBe('gh_id');
+    expect(winCfg.githubClientSecret).toBe('gh_sec');
+    expect(winCfg.githubOrgName).toBe('custom-org');
+    expect(winCfg.storageSecretKey).toBe('s3_secret');
+    expect(winCfg.pgpKeyId).toBe('PGP-999');
+    expect(winCfg.wasmDir).toBe('/custom/wasm');
     expect(winCfg.githubToken).toBe('ghp_secret');
     expect(winCfg.isGithubActions).toBe(true);
+
+    const svcEnv = buildServiceEnv(winCfg);
+    expect(svcEnv['CDD__GOOGLE_CLIENT_ID']).toBe('goog_id');
+    expect(svcEnv['CDD__GITHUB_CLIENT_ID']).toBe('gh_id');
+    expect(svcEnv['GITHUB_ORG_NAME']).toBe('custom-org');
+    expect(svcEnv['CDD__STORAGE_SECRET_KEY']).toBe('s3_secret');
+    expect(svcEnv['CDD__PGP_KEY_ID']).toBe('PGP-999');
+    expect(svcEnv['CDD__WASM_DIR']).toBe('/custom/wasm');
   });
 
   it('resolves all 4 target triplets deterministically', () => {
@@ -582,10 +685,10 @@ describe('scripts/deploy.ts', () => {
       `package-as docker-compose "${join(cfg.repoRoot, 'libscript.json')}" --output "${join(outDir, 'docker-compose.yml')}"`,
     );
     expect(deploy.buildPackageAsCommand('msi', cfg, outDir)).toContain(
-      `package-as msi --app-name "CDD Platform" --app-version "0.0.1" --app-publisher "CDD Open Source Project" --upgrade-code "A7D43B82-6E19-4F0C-9B25-3C8A1D7E4F90" --out-file "${join(outDir, 'cdd-installer')}"`,
+      `package-as msi --app-name "CDD Platform" --app-version "0.0.5" --app-publisher "CDD Open Source Project" --upgrade-code "A7D43B82-6E19-4F0C-9B25-3C8A1D7E4F90" --out-file "${join(outDir, 'cdd-installer')}"`,
     );
     expect(deploy.buildPackageAsCommand('deb', cfg, outDir)).toContain(
-      'package-as deb --app-name "CDD Platform" --app-version "0.0.1" --app-publisher "CDD Open Source Project" --upgrade-code "A7D43B82-6E19-4F0C-9B25-3C8A1D7E4F90"',
+      'package-as deb --app-name "CDD Platform" --app-version "0.0.5" --app-publisher "CDD Open Source Project" --upgrade-code "A7D43B82-6E19-4F0C-9B25-3C8A1D7E4F90"',
     );
     expect(deploy.buildPackageAsCommand('iso', cfg, outDir)).toBe(`"${cfg.libscript}" package-as iso`);
 

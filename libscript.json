@@ -1,7 +1,7 @@
 {
   "$schema": "../libscript/libscript.schema.json",
   "name": "cdd",
-  "version": "0.0.1",
+  "version": "0.0.5",
   "description": "Compiler Driven Development (CDD) Platform Stack",
   "deps": {
     "rust": "latest",
@@ -51,7 +51,8 @@
     "POSTGRES_DB": "cdd",
     "VALKEY_PORT": 6379,
     "CADDY_PORT_HTTP": 8080,
-    "NGINX_PORT": 8080
+    "NGINX_PORT": 8080,
+    "GITHUB_ORG_NAME": "offscale"
   },
   "databases": [
     {
@@ -154,7 +155,16 @@
       "env": {
         "CDD__DATABASE_URL": "postgres://postgres@localhost:5432/cdd",
         "CDD__REDIS_URL": "redis://localhost:6379",
-        "CDD__SERVER_BIND": "0.0.0.0:8081"
+        "CDD__SERVER_BIND": "0.0.0.0:8081",
+        "CDD__GOOGLE_CLIENT_ID": "dev-google-client-id",
+        "CDD__GOOGLE_CLIENT_SECRET": "dev-google-client-secret",
+        "CDD__GOOGLE_OAUTH_URL": "https://oauth2.googleapis.com/token",
+        "CDD__GOOGLE_USERINFO_URL": "https://www.googleapis.com/oauth2/v3/userinfo",
+        "CDD__GITHUB_CLIENT_ID": "dev-github-client-id",
+        "CDD__GITHUB_CLIENT_SECRET": "dev-github-client-secret",
+        "GITHUB_ORG_NAME": "offscale",
+        "CDD__STORAGE_URL": "http://localhost:8085",
+        "CDD__STORAGE_SECRET_KEY": "dev-secret-key"
       }
     },
     {
@@ -164,7 +174,10 @@
       "depends_on": ["postgres", "valkey", "cdd-control-plane"],
       "env": {
         "CDD__DATABASE_URL": "postgres://postgres@localhost:5432/cdd",
-        "CDD__REDIS_URL": "redis://localhost:6379"
+        "CDD__REDIS_URL": "redis://localhost:6379",
+        "CDD__WASM_DIR": "../cdd-web-ui/public/wasm",
+        "CDD__STORAGE_URL": "http://localhost:8085",
+        "CDD__STORAGE_SECRET_KEY": "dev-secret-key"
       }
     },
     {
@@ -178,6 +191,7 @@
       "env": {
         "CDD__DATABASE_URL": "postgres://postgres@localhost:5432/cdd",
         "CDD__REDIS_URL": "redis://localhost:6379",
+        "CDD__STORAGE_SECRET_KEY": "dev-secret-key",
         "PORT": "8085"
       }
     },
@@ -188,7 +202,12 @@
       "depends_on": ["postgres", "valkey", "cdd-storage"],
       "env": {
         "CDD__DATABASE_URL": "postgres://postgres@localhost:5432/cdd",
-        "CDD__REDIS_URL": "redis://localhost:6379"
+        "CDD__REDIS_URL": "redis://localhost:6379",
+        "CDD__STORAGE_URL": "http://localhost:8085",
+        "CDD__STORAGE_SECRET_KEY": "dev-secret-key",
+        "CDD__PGP_KEY_ID": "CDD-DEV-PGP-KEY",
+        "CDD__PGP_PASSPHRASE": "dev-pgp-passphrase",
+        "GITHUB_ORG_NAME": "offscale"
       }
     },
     {
@@ -199,7 +218,8 @@
       "health_url": "http://localhost:8082",
       "health_timeout": 60,
       "env": {
-        "PORT": "8082"
+        "PORT": "8082",
+        "CDD__STORAGE_URL": "http://localhost:8085"
       }
     },
     {
@@ -210,7 +230,8 @@
       "health_url": "http://localhost:8083",
       "health_timeout": 60,
       "env": {
-        "PORT": "8083"
+        "PORT": "8083",
+        "CDD__WASM_DIR": "../cdd-web-ui/public/wasm"
       }
     },
     {
@@ -224,7 +245,16 @@
       "env": {
         "CDD__DATABASE_URL": "postgres://postgres@localhost:5432/cdd",
         "CDD__REDIS_URL": "redis://localhost:6379",
-        "CDD__SERVER_BIND": "0.0.0.0:8086"
+        "CDD__SERVER_BIND": "0.0.0.0:8086",
+        "CDD__GOOGLE_CLIENT_ID": "dev-google-client-id",
+        "CDD__GOOGLE_CLIENT_SECRET": "dev-google-client-secret",
+        "CDD__GOOGLE_OAUTH_URL": "https://oauth2.googleapis.com/token",
+        "CDD__GOOGLE_USERINFO_URL": "https://www.googleapis.com/oauth2/v3/userinfo",
+        "CDD__GITHUB_CLIENT_ID": "dev-github-client-id",
+        "CDD__GITHUB_CLIENT_SECRET": "dev-github-client-secret",
+        "GITHUB_ORG_NAME": "offscale",
+        "CDD__STORAGE_URL": "http://localhost:8085",
+        "CDD__STORAGE_SECRET_KEY": "dev-secret-key"
       }
     }
   ]

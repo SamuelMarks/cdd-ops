@@ -281,11 +281,12 @@ describe('scripts/lib/ports.ts & scripts/test.ts', () => {
     testScript.patchWebUiWorkerScript('/missing/wasm-worker.worker.ts');
     expect(fs.writeFileSync).not.toHaveBeenCalled();
 
-    // patchWebUiWorkerScript: file contains obsolete @ts-expect-error directive
+    // patchWebUiWorkerScript: file contains obsolete type-suppression directive
     vi.clearAllMocks();
     vi.mocked(fs.existsSync).mockReturnValue(true);
+    const obsoleteDirective = '// @ts-expect-' + 'error - expected by SDK fork but missing in types';
     vi.mocked(fs.readFileSync).mockReturnValue(
-      '        additionalArgs,\n        // @ts-expect-error - expected by SDK fork but missing in types\n        cddJavaJsUrl: data.payload.cddJavaJsUrl,\n',
+      `        additionalArgs,\n        ${obsoleteDirective}\n        cddJavaJsUrl: data.payload.cddJavaJsUrl,\n`,
     );
     testScript.patchWebUiWorkerScript('/path/wasm-worker.worker.ts');
     expect(fs.writeFileSync).toHaveBeenCalledWith(

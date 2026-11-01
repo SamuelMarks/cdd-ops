@@ -1,8 +1,18 @@
 #!/bin/sh
 set -eu
 
-# deploy_with_libscript.sh
-# Installs dependencies using libscript and builds projects like CI
+# @file deploy_with_libscript.sh
+# @description POSIX /bin/sh entrypoint that installs required platform dependencies via libscript,
+#   clones sibling CDD repositories, and builds/tests the CDD platform like CI.
+# @arg $@ Optional CLI arguments forwarded to `npm run test`.
+# @env POSTGRES_HOST Optional PostgreSQL hostname (defaults to localhost).
+# @env POSTGRES_PORT Optional PostgreSQL port (defaults to 5432).
+# @env POSTGRES_USER Optional PostgreSQL user (defaults to postgres).
+# @env VALKEY_HOST Optional Valkey/Redis hostname (defaults to localhost).
+# @env VALKEY_PORT Optional Valkey/Redis port (defaults to 6379).
+# @env GITHUB_TOKEN Optional GitHub API token for authenticated release/WASM fetches.
+# @exitcode 0 If all dependencies, repository clones, and tests succeed.
+# @exitcode >0 If any provisioning, clone, or test step fails.
 
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 if [ -x "$SCRIPT_DIR/../libscript/libscript.sh" ]; then
@@ -23,7 +33,7 @@ if [ -f "$SCRIPT_DIR/libscript.json" ]; then
 fi
 
 echo "Cloning sibling repositories (like .github/workflows/ci.yml)..."
-cd "$SCRIPT_DIR/.."
+CDPATH='' cd -- "$SCRIPT_DIR/.."
 
 REPOS="cdd-control-plane cdd-engine cdd-storage cdd-web-ui cdd-browser-sdk cdd-docs-ui cdd-gateway cdd-publisher"
 
@@ -36,8 +46,8 @@ for REPO in $REPOS; do
   fi
 done
 
-cd cdd-ops
+CDPATH='' cd -- "$SCRIPT_DIR"
 
 echo "Building projects like CI..."
 npm install
-npm run test
+exec npm run test -- "$@"

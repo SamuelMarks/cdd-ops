@@ -130,17 +130,24 @@ Run the batch script via Command Prompt:
 
 Once the local build completes, use `libscript deploy-remote` to synchronize local repositories to a target host over SSH, automatically run `install-deps` and `up` for each application containing a `libscript.json`, and configure the reverse proxy:
 
+**POSIX (`/bin/sh`):**
 ```sh
-../libscript/libscript.sh deploy-remote deploy@production-server.local
-  --sync-dirs="cdd-ops"
-  --apps="cdd-ops"
+../libscript/libscript.sh deploy-remote deploy@production-server.local \
+  --sync-dirs="cdd-ops" \
+  --apps="cdd-ops" \
   --health-apps="cdd-ops"
+```
+
+**Windows (`.cmd`):**
+```cmd
+..\libscript\libscript.cmd deploy-remote deploy@production-server.local --sync-dirs="cdd-ops" --apps="cdd-ops" --health-apps="cdd-ops"
 ```
 
 ### 2. Service, Database, & State Lifecycle Management
 
 Both locally and on remote hosts, `libscript` manages the lifecycle of all `databases`, `frontends`, and `services` declared in `libscript.json` across native init systems (`systemd`, `openrc`, `runit`, `s6`, `dinit`, `launchd`, FreeBSD `rc.d`, Illumos `smf`, and Windows Services):
 
+**POSIX (`/bin/sh`):**
 ```sh
 # Provision databases and run migrations declared in libscript.json
 ../libscript/libscript.sh provision-db libscript.json
@@ -159,6 +166,27 @@ Both locally and on remote hosts, `libscript` manages the lifecycle of all `data
 # Restart or stop the stack
 ../libscript/libscript.sh restart libscript.json
 ../libscript/libscript.sh down libscript.json
+```
+
+**Windows (`.cmd`):**
+```cmd
+REM Provision databases and run migrations declared in libscript.json
+..\libscript\libscript.cmd provision-db libscript.json
+
+REM Start all CDD services and run pre_start/post_start hooks
+..\libscript\libscript.cmd up libscript.json
+
+REM Check service status and deep HTTP/database health
+..\libscript\libscript.cmd status libscript.json
+..\libscript\libscript.cmd health libscript.json
+
+REM Export or import database and application state snapshots
+..\libscript\libscript.cmd export-state libscript.json .\backups\snapshot
+..\libscript\libscript.cmd import-state libscript.json .\backups\snapshot
+
+REM Restart or stop the stack
+..\libscript\libscript.cmd restart libscript.json
+..\libscript\libscript.cmd down libscript.json
 ```
 
 Combining `libscript.json`, `packaging.json`, and `deploy-remote` allows you to script an end-to-end continuous deployment pipeline natively across any operating system.

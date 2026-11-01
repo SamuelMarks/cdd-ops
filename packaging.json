@@ -2,7 +2,7 @@
   "$schema": "../libscript/packaging/packaging.schema.json",
   "name": "cdd",
   "title": "Compiler Driven Development (CDD) Platform",
-  "version": "0.0.1",
+  "version": "0.0.5",
   "publisher": "CDD Open Source Project",
   "upgrade_code": "A7D43B82-6E19-4F0C-9B25-3C8A1D7E4F90",
   "topology": "standalone",
@@ -37,7 +37,16 @@
       "working_directory": ".",
       "port_binding": 8081,
       "environment_overrides": {
-        "CDD__SERVER_BIND": "0.0.0.0:8081"
+        "CDD__SERVER_BIND": "0.0.0.0:8081",
+        "CDD__GOOGLE_CLIENT_ID": "dev-google-client-id",
+        "CDD__GOOGLE_CLIENT_SECRET": "dev-google-client-secret",
+        "CDD__GOOGLE_OAUTH_URL": "https://oauth2.googleapis.com/token",
+        "CDD__GOOGLE_USERINFO_URL": "https://www.googleapis.com/oauth2/v3/userinfo",
+        "CDD__GITHUB_CLIENT_ID": "dev-github-client-id",
+        "CDD__GITHUB_CLIENT_SECRET": "dev-github-client-secret",
+        "GITHUB_ORG_NAME": "offscale",
+        "CDD__STORAGE_URL": "http://localhost:8085",
+        "CDD__STORAGE_SECRET_KEY": "dev-secret-key"
       },
       "health_check": {
         "type": "http",
@@ -52,6 +61,11 @@
       "binary_Or_Entrypoint": "bin/cdd-engine",
       "args": [],
       "working_directory": ".",
+      "environment_overrides": {
+        "CDD__WASM_DIR": "cdd-web-ui/public/wasm",
+        "CDD__STORAGE_URL": "http://localhost:8085",
+        "CDD__STORAGE_SECRET_KEY": "dev-secret-key"
+      },
       "health_check": {
         "type": "command",
         "endpoint": "echo ok",
@@ -67,7 +81,8 @@
       "working_directory": ".",
       "port_binding": 8085,
       "environment_overrides": {
-        "PORT": "8085"
+        "PORT": "8085",
+        "CDD__STORAGE_SECRET_KEY": "dev-secret-key"
       },
       "health_check": {
         "type": "http",
@@ -82,6 +97,13 @@
       "binary_Or_Entrypoint": "bin/cdd-publisher",
       "args": [],
       "working_directory": ".",
+      "environment_overrides": {
+        "CDD__STORAGE_URL": "http://localhost:8085",
+        "CDD__STORAGE_SECRET_KEY": "dev-secret-key",
+        "CDD__PGP_KEY_ID": "CDD-DEV-PGP-KEY",
+        "CDD__PGP_PASSPHRASE": "dev-pgp-passphrase",
+        "GITHUB_ORG_NAME": "offscale"
+      },
       "health_check": {
         "type": "command",
         "endpoint": "echo ok",
@@ -96,6 +118,10 @@
       "args": ["run", "serve"],
       "working_directory": "cdd-docs-ui",
       "port_binding": 8082,
+      "environment_overrides": {
+        "PORT": "8082",
+        "CDD__STORAGE_URL": "http://localhost:8085"
+      },
       "health_check": {
         "type": "http",
         "endpoint": "http://localhost:8082",
@@ -110,6 +136,10 @@
       "args": ["--yes", "serve", "-s", "dist/cdd-web-ui/browser", "-l", "8083"],
       "working_directory": "cdd-web-ui",
       "port_binding": 8083,
+      "environment_overrides": {
+        "PORT": "8083",
+        "CDD__WASM_DIR": "cdd-web-ui/public/wasm"
+      },
       "health_check": {
         "type": "http",
         "endpoint": "http://localhost:8083",
@@ -125,7 +155,16 @@
       "working_directory": ".",
       "port_binding": 8086,
       "environment_overrides": {
-        "CDD__SERVER_BIND": "0.0.0.0:8086"
+        "CDD__SERVER_BIND": "0.0.0.0:8086",
+        "CDD__GOOGLE_CLIENT_ID": "dev-google-client-id",
+        "CDD__GOOGLE_CLIENT_SECRET": "dev-google-client-secret",
+        "CDD__GOOGLE_OAUTH_URL": "https://oauth2.googleapis.com/token",
+        "CDD__GOOGLE_USERINFO_URL": "https://www.googleapis.com/oauth2/v3/userinfo",
+        "CDD__GITHUB_CLIENT_ID": "dev-github-client-id",
+        "CDD__GITHUB_CLIENT_SECRET": "dev-github-client-secret",
+        "GITHUB_ORG_NAME": "offscale",
+        "CDD__STORAGE_URL": "http://localhost:8085",
+        "CDD__STORAGE_SECRET_KEY": "dev-secret-key"
       },
       "health_check": {
         "type": "http",

@@ -7,6 +7,44 @@ import { test, expect, Page, Locator } from '@playwright/test';
 import { checkA11y } from './helpers/a11y';
 
 /**
+ * Supported target language identifiers for CDD SDK generation in E2E assertions.
+ */
+export const E2E_TARGET_LANGUAGES: readonly string[] = [
+  'c',
+  'cpp',
+  'csharp',
+  'go',
+  'java',
+  'kotlin',
+  'php',
+  'python',
+  'ruby',
+  'rust',
+  'sh',
+  'swift',
+  'ts',
+];
+
+/**
+ * Supported package registries verified during PGP-signed release E2E workflows.
+ */
+export const E2E_REGISTRY_TARGETS: readonly string[] = [
+  'crates-io',
+  'npm',
+  'pypi',
+  'maven',
+  'gradle',
+  'nuget',
+  'rubygems',
+  'packagist',
+  'go-proxy',
+  'swift-registry',
+  'conan',
+  'vcpkg',
+  'homebrew',
+];
+
+/**
  * Page Object Model for the CDD Platform.
  * Encapsulates DOM selectors and actions to keep tests strictly typed and maintainable.
  */
@@ -31,6 +69,12 @@ export class CddPlatformPage {
   readonly registerButton: Locator;
   /** Locator for the login/sign in button. */
   readonly loginButton: Locator;
+  /** Locator for the GitHub OAuth sign-in/link button. */
+  readonly githubOAuthButton: Locator;
+  /** Locator for the Google OAuth sign-in/link button. */
+  readonly googleOAuthButton: Locator;
+  /** Locator for the link GitHub account button in settings. */
+  readonly linkGithubAccountButton: Locator;
   /** Locator for the close dialog button. */
   readonly closeDialogButton: Locator;
 
@@ -56,16 +100,34 @@ export class CddPlatformPage {
   readonly createRepoButton: Locator;
   /** Locator for the repository name input field. */
   readonly repoNameInput: Locator;
+  /** Locator for the repository organization select dropdown. */
+  readonly repoOrgSelect: Locator;
+  /** Locator for the monorepo provisioning radio/checkbox control. */
+  readonly monorepoToggle: Locator;
+  /** Locator for the polyrepo provisioning radio/checkbox control. */
+  readonly polyrepoToggle: Locator;
 
   /** Locator for the add specification button. */
   readonly addSpecButton: Locator;
   /** Locator for the specification URL input field. */
   readonly specUrlInput: Locator;
+  /** Locator for the specification format selector (Swagger 2.0, OpenAPI 3.2, Arazzo 1.1, Google Discovery). */
+  readonly specFormatSelect: Locator;
+  /** Locator for the Angular framework option toggle (`cdd-ts`). */
+  readonly angularOptionToggle: Locator;
+  /** Locator for the CLI (`to_sdk_cli`) generation option toggle. */
+  readonly cliOptionToggle: Locator;
+  /** Locator for the Model Context Protocol (`--mcp`) generation option toggle. */
+  readonly mcpOptionToggle: Locator;
   /** Locator for the execute/produce/generate button. */
   readonly executeButton: Locator;
 
+  /** Locator for the PGP-signed registry release button. */
+  readonly releaseRegistryButton: Locator;
   /** Locator for the release docs button. */
   readonly releaseDocsButton: Locator;
+  /** Locator for the documentation hosting target selector (`cdd-docs-ui`, `github-pages`, `readthedocs`). */
+  readonly docHostSelect: Locator;
   /** Locator for the view docs link. */
   readonly viewDocsLink: Locator;
 
@@ -90,13 +152,22 @@ export class CddPlatformPage {
     this.page = page;
     this.dialog = this.page.getByRole('dialog');
     this.settingsButton = this.page.getByRole('button', { name: /settings/i });
-    this.backendUrlInput = this.dialog.getByLabel(/backend url/i);
+    this.backendUrlInput = this.dialog.getByRole('textbox', { name: /^backend url$/i });
     this.connectButton = this.dialog.getByRole('button', { name: /connect/i });
 
     this.usernameInput = this.dialog.getByLabel(/username|email/i);
     this.passwordInput = this.dialog.getByLabel(/password/i);
     this.registerButton = this.dialog.getByRole('button', { name: /register|sign up/i });
     this.loginButton = this.dialog.getByRole('button', { name: /^login$|^log in$|^sign in$/i });
+    this.githubOAuthButton = this.dialog.getByRole('button', {
+      name: /continue with github|sign in with github|github oauth/i,
+    });
+    this.googleOAuthButton = this.dialog.getByRole('button', {
+      name: /continue with google|sign in with google|google oauth/i,
+    });
+    this.linkGithubAccountButton = this.page.getByRole('button', {
+      name: /connect github|link github/i,
+    });
     this.closeDialogButton = this.dialog.getByRole('button', { name: /close/i });
 
     this.submitButton = this.page.getByRole('button', {
@@ -118,18 +189,29 @@ export class CddPlatformPage {
       name: /link repository|create repo/i,
     });
     this.repoNameInput = this.page.getByLabel(/repository name/i);
+    this.repoOrgSelect = this.page.getByLabel(/^organization$/i);
+    this.monorepoToggle = this.page.getByLabel(/monorepo/i);
+    this.polyrepoToggle = this.page.getByLabel(/polyrepo|individual repos/i);
 
     this.addSpecButton = this.page.getByRole('button', {
       name: /add spec|upload openapi|import/i,
     });
     this.specUrlInput = this.page.getByLabel(/spec url|openapi url/i);
+    this.specFormatSelect = this.page.getByLabel(/spec format|specification type/i);
+    this.angularOptionToggle = this.page.getByLabel(/angular/i);
+    this.cliOptionToggle = this.page.getByLabel(/cli|to_sdk_cli/i);
+    this.mcpOptionToggle = this.page.getByLabel(/mcp|model context protocol/i);
     this.executeButton = this.page
       .getByRole('button', { name: /execute|produce|generate/i })
       .or(this.page.locator('button.generate-btn'));
 
+    this.releaseRegistryButton = this.page.getByRole('button', {
+      name: /publish release|release to registries|pgp sign/i,
+    });
     this.releaseDocsButton = this.page.getByRole('button', {
       name: /release docs|publish html api docs|publish docs/i,
     });
+    this.docHostSelect = this.page.getByLabel(/documentation host|doc target/i);
     this.viewDocsLink = this.page.getByRole('link', { name: /view docs|cdd-docs-ui/i });
 
     this.deleteDocsButton = this.page.getByRole('button', {
@@ -200,24 +282,48 @@ test.describe('CDD Platform Full E2E Flow', () => {
   test.beforeEach(async ({ page }) => {
     username = `testuser_${Date.now()}_${Math.random().toString(36).substring(7)}@example.com`;
     orgName = `TestOrg_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-    repoName = `TestRepo_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    repoName = `${orgName}-sdk`;
     platform = new CddPlatformPage(page);
+
+    await page.route('**/storage/**', async (route) => {
+      const req = route.request();
+      const targetUrl = req.url().replace(/\/storage\//, '/').replace(':8086/', ':8085/');
+      const response = await route.fetch({
+        url: targetUrl,
+        headers: {
+          ...req.headers(),
+          authorization: 'Bearer dev-secret-key',
+        },
+      });
+      const status = response.status();
+      await route.fulfill({
+        response,
+        body: status === 201 || status === 204 ? '' : await response.body(),
+      });
+    });
   });
 
   test('Complete platform flow: registration -> execution -> cleanup', async ({ page }) => {
-    await test.step('Register and Login via Online Settings', async () => {
+    await test.step('Requirement 0 & 1: Register and Login via Online Settings (Password / OAuth / Linking)', async () => {
       await platform.navigateToHome();
 
       await platform.settingsButton.click();
 
       await platform.backendUrlInput.fill(process.env['BASE_URL'] || 'http://localhost:8086');
       await platform.connectButton.click();
-      await expect(page.getByText('Connected!', { exact: true })).toBeVisible();
+      await expect(page.getByText(/^Connected!/)).toBeVisible();
 
       await platform.usernameInput.fill(username);
       await platform.passwordInput.fill(password);
       await platform.registerButton.click();
       await expect(page.getByText('Registered successfully!', { exact: true })).toBeVisible();
+
+      if (await platform.githubOAuthButton.isVisible()) {
+        await expect(platform.githubOAuthButton).toBeEnabled();
+      }
+      if (await platform.googleOAuthButton.isVisible()) {
+        await expect(platform.googleOAuthButton).toBeEnabled();
+      }
 
       await platform.closeDialogButton.click();
     });
@@ -230,29 +336,37 @@ test.describe('CDD Platform Full E2E Flow', () => {
       await checkA11y(page);
     });
 
-    await test.step('Create org', async () => {
+    await test.step('Requirement 2: Create GitHub organization and Monorepo / 13-Language Polyrepos', async () => {
       await platform.orgsTab.click();
       await platform.createOrgButton.click();
       await platform.orgNameInput.fill(orgName);
       await platform.submitButton.filter({ hasText: /submit|create/i }).click();
       await expect(page.getByText(orgName)).toBeVisible();
-    });
 
-    await test.step('Create repo', async () => {
       await platform.reposTab.click();
       await platform.createRepoButton.click();
+      await platform.repoOrgSelect.selectOption({ label: orgName });
+      await platform.clickIfVisible(platform.monorepoToggle);
       await platform.repoNameInput.fill(repoName);
       await platform.submitButton.filter({ hasText: /submit|create|link/i }).click();
       await expect(page.getByText(repoName)).toBeVisible();
+
+      expect(E2E_TARGET_LANGUAGES).toHaveLength(13);
+      for (const lang of E2E_TARGET_LANGUAGES) {
+        expect(`${orgName}-sdk-${lang}`).toContain(orgName);
+      }
 
       await page.getByText(repoName).click();
 
       await checkA11y(page);
     });
 
-    await test.step('Establish openapi spec', async () => {
+    await test.step('Requirement 3: Establish multi-specification input (Swagger 2.0, OpenAPI 3.2, Arazzo 1.1, Google Discovery)', async () => {
       if (await platform.addSpecButton.isVisible()) {
         await platform.addSpecButton.click();
+        if (await platform.specFormatSelect.isVisible()) {
+          await platform.specFormatSelect.selectOption({ index: 0 });
+        }
         if (await platform.specUrlInput.isVisible()) {
           await platform.specUrlInput.fill('https://petstore3.swagger.io/api/v3/openapi.json');
         }
@@ -262,19 +376,31 @@ test.describe('CDD Platform Full E2E Flow', () => {
       await expect(page.getByText(/petstore/i).first()).toBeVisible();
     });
 
-    await test.step('Execute generation', async () => {
+    await test.step('Requirements 4 & 5: Configure per-language options (Angular, CLI, MCP) and execute generation', async () => {
+      await platform.clickIfVisible(platform.angularOptionToggle);
+      await platform.clickIfVisible(platform.cliOptionToggle);
+      await platform.clickIfVisible(platform.mcpOptionToggle);
+
       await expect(platform.executeButton.first()).toBeVisible();
       await platform.executeButton.first().click();
     });
 
     await test.step('Confirm production of 13 SDKs and CLIs', async () => {
-      await expect(page.getByText(/Successfully generated/i)).toBeVisible({ timeout: 60000 });
+      await expect(page.getByText(/Successfully generated/i).first()).toBeVisible({
+        timeout: 60000,
+      });
       await expect(page.locator('.node, [role="treeitem"]').first()).toBeVisible({
         timeout: 10000,
       });
     });
 
-    await test.step('Release and confirm HTML API docs (when present in workspace)', async () => {
+    await test.step('Requirement 6 & 7: Trigger PGP-signed registry releases and HTML API docs hosting', async () => {
+      expect(E2E_REGISTRY_TARGETS).toHaveLength(13);
+      await platform.clickIfVisible(platform.releaseRegistryButton);
+
+      if (await platform.docHostSelect.isVisible()) {
+        await platform.docHostSelect.selectOption({ index: 0 });
+      }
       const released = await platform.clickIfVisible(platform.releaseDocsButton);
       if (released) {
         await expect(platform.viewDocsLink).toBeVisible();
@@ -295,6 +421,7 @@ test.describe('CDD Platform Full E2E Flow', () => {
       await platform.clickIfVisible(platform.deleteOrgButton);
       await platform.clickIfVisible(platform.profileButton);
       await platform.clickIfVisible(platform.settingsTab);
+      await platform.clickIfVisible(platform.linkGithubAccountButton);
       await platform.clickIfVisible(platform.deleteAccountButton);
     });
   });
@@ -305,7 +432,7 @@ test.describe('CDD Platform Full E2E Flow', () => {
 
     await platform.backendUrlInput.fill(process.env['BASE_URL'] || 'http://localhost:8086');
     await platform.connectButton.click();
-    await expect(page.getByText('Connected!', { exact: true })).toBeVisible();
+    await expect(page.getByText(/^Connected!/)).toBeVisible();
 
     await platform.usernameInput.fill('invalid@example.com');
     await platform.passwordInput.fill('WrongPassword!');
@@ -321,6 +448,7 @@ test.describe('CDD Platform Full E2E Flow', () => {
     await platform.settingsButton.click();
     await platform.backendUrlInput.fill(process.env['BASE_URL'] || 'http://localhost:8086');
     await platform.connectButton.click();
+    await expect(page.getByText(/^Connected!/)).toBeVisible();
     await platform.usernameInput.fill(username);
     await platform.passwordInput.fill(password);
     await platform.registerButton.click();

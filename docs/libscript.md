@@ -23,12 +23,12 @@ LibScript has recently undergone massive structural upgrades across its 4-tier a
 The global CLI (`libscript.sh` on POSIX and `libscript.cmd` on Windows) uses an **action-first** syntax so every command works identically on both Unix shells and Windows Command Prompt.
 
 ### Canonical Action-First Global CLI Syntax
-```bash
+```sh
 libscript <ACTION> <PACKAGE_NAME> [VERSION] [OPTIONS...]
 ```
 
-For example:
-```bash
+For example, on POSIX (`/bin/sh`):
+```sh
 # Install components
 ./libscript.sh install postgres latest
 ./libscript.sh install rust latest
@@ -45,19 +45,30 @@ For example:
 ./libscript.sh health libscript.json
 ```
 
-On Windows Command Prompt:
+On Windows Command Prompt (`.cmd`):
 ```cmd
 libscript.cmd install postgres latest
+libscript.cmd install rust latest
+libscript.cmd install wait4x latest
 libscript.cmd test rust
+libscript.cmd test postgres
 libscript.cmd provision-db libscript.json
 libscript.cmd start postgres valkey
+libscript.cmd status postgres
+libscript.cmd health libscript.json
 ```
 
-### Direct Component CLI Invocation (POSIX Category Path)
-You can also invoke a component's CLI directly by its category path:
-```bash
+### Direct Component CLI Invocation (Category Path)
+You can also invoke a component's CLI directly by its category path on POSIX (`/bin/sh`):
+```sh
 ./libscript.sh _lib/languages/rust install latest
 ./libscript.sh _lib/databases/postgres status
+```
+
+And on Windows Command Prompt (`.cmd`):
+```cmd
+libscript.cmd _lib\languages\rust install latest
+libscript.cmd _lib\databases\postgres status
 ```
 
 *Note: Avoid the legacy `<pkg> install <pkg>` syntax, as `libscript.cmd` on Windows strictly requires the action verb first and passing `<pkg>` as the third argument sets `<version>` to `<pkg>`.*
